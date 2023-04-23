@@ -3,13 +3,312 @@
 
 # COMMAND ----------
 
-display(dbutils.fs.ls(f"{GROUP_DATA_PATH}"))
+
 
 # COMMAND ----------
 
-#YC_WEATHER_FILE_PATH = 'dbfs:/FileStore/tables/raw/weather/'
+# MAGIC %md
+# MAGIC 
+# MAGIC 1) get a start_at_month column
+# MAGIC 2) ohe the rideable type
+# MAGIC 3) add a started_at_season column
+# MAGIC 4) start the visualization process, today's goal is to just simply understand what is going on, don't have to have meaningful outputs
 
-dbutils.fs.ls('dbfs:/FileStore/tables/raw/weather/NYC_Weather_Data.csv')
+# COMMAND ----------
+
+df = spark.read.format("delta").load("dbfs:/FileStore/tables/G01/silver_historical.delta/")
+
+
+
+# COMMAND ----------
+
+display(df)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import month
+
+# Assuming your DataFrame is named 'df' and the column is named 'started_at_date'
+df = df.withColumn("month", month(df.started_at_date))
+
+
+# COMMAND ----------
+
+from pyspark.sql.functions import when
+
+# Assuming your DataFrame is named 'df' and the column is named 'rideable_type'
+df = df.withColumn("total_bikes", when(df.rideable_type == "classic_bike", 1).\
+                  when(df.rideable_type == "electric_bike", 1).\
+                  when(df.rideable_type == "docked_bike", 0).\
+                  otherwise(0))
+
+
+
+# COMMAND ----------
+
+display(df)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col, when
+
+df = df.withColumn("seasons", when((col("month") == 12) | (col("month") <= 2), "Winter").\
+                  when((col("month") >= 3) & (col("month") <= 5), "Spring").\
+                  when((col("month") >= 6) & (col("month") <= 8), "Summer").\
+                  when((col("month") >= 9) & (col("month") <= 11), "Fall").\
+                  otherwise("Unknown"))
+
+
+# COMMAND ----------
+
+display(df)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import dayofweek, dayofmonth
+
+# Assuming your DataFrame is named 'df' and the date column is named 'started_at_date'
+df = df.withColumn("day_of_week", dayofweek("started_at_date"))
+df = df.withColumn("day_of_month", dayofmonth("started_at_date"))
+
+
+# COMMAND ----------
+
+display(df)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC Going to look at every season except for Summer, since I know the data isn't there. 
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # Winter
+
+# COMMAND ----------
+
+winter = df.filter(col('seasons') == 'Winter')
+display(winter)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC Seems like December is the most active month for bikes, so I am going to visualize these in two groups: December, and then January and February. Added the other graphs just for awareness, nothing to really get from there until we dive deeper.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## December
+
+# COMMAND ----------
+
+december = df.filter(col('month') == 12)
+display(december)
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC 
+# MAGIC Curious why there are dips in general on: 3rd, 6th, 9th, 10th, 15th, 16th, and 18th. After that, it's the holiday season, so it's understandable why there aren't as many bikers.
+
+# COMMAND ----------
+
+# Define the desired day of month values
+day_values = [3, 6, 9, 10, 15, 16, 18]
+
+# Filter the 'winter' DataFrame by the desired day of month values
+december_filtered_neg = december.filter(col("day_of_month").isin(day_values))
+december_filtered_pos = december.filter(~ col("day_of_month").isin(day_values))
+
+
+# COMMAND ----------
+
+display(december_filtered_neg)
+
+# COMMAND ----------
+
+display(december_filtered_pos)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC In December, we are able to see that evenings regardless of dips or peaks, are when bikes are being used. However, there are dips more on weekends, and on weekdays, bikes are being used more. Curious if this a trend or not.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Jan and Feb
+
+# COMMAND ----------
+
+other_winter = df.filter((col('month') == 1) | (col('month') == 2))
+display(other_winter)
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC Again, there are dips and peaks. Let's take a look at them.
+
+# COMMAND ----------
+
+# Define the desired day of month values
+day_values = [3, 7, 11, 12, 14, 19, 20, 24, 22, 25, 29,31]
+
+# Filter the 'winter' DataFrame by the desired day of month values
+other_filtered_neg = other_winter.filter(col("day_of_month").isin(day_values))
+other_filtered_pos = other_winter.filter(~ col("day_of_month").isin(day_values))
+
+
+# COMMAND ----------
+
+display(other_filtered_neg)
+
+# COMMAND ----------
+
+display(other_filtered_pos)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## WINTER RECAP
+# MAGIC 
+# MAGIC We learned that weekdays around the evening are most important times. We will look at holidays more in depth, but in December, the holiday time period made bikes go down. Weekdays + Evenings is the current trend, let's look at other seasons to see if it's still valid.
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC # Spring
+
+# COMMAND ----------
+
+spring = df.filter(col('seasons') == 'Spring')
+display(spring)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Gonna split it up into 2 groups again: March & April AND May
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## March & April
+
+# COMMAND ----------
+
+main_spring = df.filter((col('month') == 3) | (col('month') == 4))
+display(main_spring)
+
+
+# COMMAND ----------
+
+# Define the desired day of month values
+day_values = [3, 6, 9, 12, 17, 19, 23, 24, 24, 28, 31]
+
+# Filter the 'winter' DataFrame by the desired day of month values
+other_filtered_neg = main_spring.filter(col("day_of_month").isin(day_values))
+other_filtered_pos = main_spring.filter(~ col("day_of_month").isin(day_values))
+
+
+# COMMAND ----------
+
+display(other_filtered_neg)
+
+# COMMAND ----------
+
+display(other_filtered_pos)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC There are more bikes being used on weekends on the negative dips. Same trends
+
+# COMMAND ----------
+
+may = df.filter((col('month') == 5))
+display(may)
+
+
+# COMMAND ----------
+
+# Define the desired day of month values
+day_values = [2, 6, 7, 14, 16, 18, 22, 24, 24, 27, 28]
+
+# Filter the 'winter' DataFrame by the desired day of month values
+other_filtered_neg = may.filter(col("day_of_month").isin(day_values))
+other_filtered_pos = may.filter(~ col("day_of_month").isin(day_values))
+
+
+# COMMAND ----------
+
+display(other_filtered_neg)
+
+# COMMAND ----------
+
+display(other_filtered_pos)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC SAME TREND! May most likely had more bikes used, just because of how warm it got, we will check later.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # FALL
+
+# COMMAND ----------
+
+fall = df.filter(col('seasons') == 'Fall')
+display(fall)
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC 
+# MAGIC Gonna look at Fall as one group.
+
+# COMMAND ----------
+
+# Define the desired day of month values
+day_values = [11, 13, 15, 14, 18, 18, 24, 25, 31]
+
+# Filter the 'winter' DataFrame by the desired day of month values
+other_filtered_neg = fall.filter(col("day_of_month").isin(day_values))
+other_filtered_pos = fall.filter(~ col("day_of_month").isin(day_values))
+
+
+# COMMAND ----------
+
+display(other_filtered_neg)
+
+# COMMAND ----------
+
+display(other_filtered_pos)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC #LEGACY
 
 # COMMAND ----------
 
@@ -20,24 +319,6 @@ promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower(
 
 print(start_date,end_date,hours_to_forecast, promote_model)
 print("YOUR CODE HERE...")
-
-# COMMAND ----------
-
-import pyspark.sql.functions as F
-from pyspark.sql.functions import from_unixtime
-from pyspark.sql.types import TimestampType
-from pyspark.sql.functions import from_unixtime, col
-from pyspark.sql.functions import from_unixtime, to_utc_timestamp, date_format
-from pyspark.sql.functions import date_format
-
-BRONZE_STATION_INFO_PATH = "dbfs:/FileStore/tables/bronze_station_info.delta"
-BRONZE_STATION_STATUS_PATH = "dbfs:/FileStore/tables/bronze_station_status.delta"
-BRONZE_NYC_WEATHER_PATH = "dbfs:/FileStore/tables/bronze_nyc_weather.delta"
-
-
-station_info_df = spark.read.format("delta").load(BRONZE_STATION_INFO_PATH)
-station_status_df = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH)
-nyc_weather_df = spark.read.format("delta").load(BRONZE_NYC_WEATHER_PATH)
 
 # COMMAND ----------
 
