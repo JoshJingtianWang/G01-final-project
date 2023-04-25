@@ -18,8 +18,8 @@ def construct_nested_group_path(*args: str) -> str:
 # COMMAND ----------
 
 # Define paths for the two new bronze tables
-BRONZE_STATION_HISTORY_PATH = construct_nested_group_path("bronze_station_history.delta")
 BRONZE_WEATHER_HISTORY_PATH = construct_nested_group_path("bronze_weather_history.delta")
+BRONZE_STATION_HISTORY_PATH = construct_nested_group_path("bronze_station_history.delta")
 
 # Define paths for the five new silver tables
 SILVER_STATION_INFO_PATH = construct_nested_group_path("silver_station_info.delta")
@@ -29,9 +29,16 @@ SILVER_STATION_HISTORY_PATH = construct_nested_group_path("silver_station_histor
 SILVER_WEATHER_HISTORY_PATH = construct_nested_group_path("silver_weather_history.delta")
 SILVER_HISTORICAL_PATH = construct_nested_group_path("silver_historical.delta")
 
-# Define the directories that will store checkpoints
+# Define the directories that will store checkpoints for the bronze tables
 BRONZE_STATION_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "bronze_station_history")
 BRONZE_WEATHER_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "bronze_weather_history")
+
+# Define the directories that will store checkpoints for the silver tables
+SILVER_STATION_INFO_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_station_info")
+SILVER_STATION_STATUS_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_station_status")
+SILVER_NYC_WEATHER_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_nyc_weather")
+SILVER_STATION_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_station_history")
+SILVER_WEATHER_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_weather_history")
 SILVER_HISTORICAL_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_historical")
 
 # COMMAND ----------
@@ -47,6 +54,11 @@ rows = [
     ["SILVER_HISTORICAL_PATH", SILVER_HISTORICAL_PATH, "Historical Data (silver)"],
     ["BRONZE_STATION_HISTORY_CHECKPOINTS", BRONZE_STATION_HISTORY_CHECKPOINTS, "Historical Station Checkpoints (bronze)"],
     ["BRONZE_WEATHER_HISTORY_CHECKPOINTS", BRONZE_WEATHER_HISTORY_CHECKPOINTS, "Historical Weather Checkpoints (bronze)"],
+    ["SILVER_STATION_INFO_CHECKPOINTS", SILVER_STATION_INFO_CHECKPOINTS, "Station Info Checkpoints (silver)"],
+    ["SILVER_STATION_STATUS_CHECKPOINTS", SILVER_STATION_STATUS_CHECKPOINTS, "Station Status Checkpoints (silver)"],
+    ["SILVER_NYC_WEATHER_CHECKPOINTS", SILVER_NYC_WEATHER_CHECKPOINTS, "NYC Weather Checkpoints (silver)"],
+    ["SILVER_STATION_HISTORY_CHECKPOINTS", SILVER_STATION_HISTORY_CHECKPOINTS, "Historical Station Checkpoints (silver)"],
+    ["SILVER_WEATHER_HISTORY_CHECKPOINTS", SILVER_WEATHER_HISTORY_CHECKPOINTS, "Historical Weather Checkpoints (silver)"],
     ["SILVER_HISTORICAL_CHECKPOINTS", SILVER_HISTORICAL_CHECKPOINTS, "Historical Checkpoints (silver)"],
 ]
 
