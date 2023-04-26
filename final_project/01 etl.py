@@ -209,7 +209,7 @@ display(bronze_nyc_weather_df)
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `BIKE_TRIP_DATA_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `BRONZE_STATION_HISTORY_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `BRONZE_STATION_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -292,7 +292,7 @@ display(spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`"))
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `NYC_WEATHER_FILE_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `BRONZE_WEATHER_HISTORY_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `BRONZE_WEATHER_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -380,7 +380,7 @@ display(spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`"))
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_INFO_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `SILVER_STATION_INFO_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_INFO_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -403,8 +403,8 @@ display(silver_station_info_df)
 
 # COMMAND ----------
 
-silver_station_status_query = (
-    silver_station_status_df
+silver_station_info_query = (
+    silver_station_info_df
     .write
     .format("delta")
     .mode("overwrite")
@@ -456,7 +456,7 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`"))
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_STATUS_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `SILVER_STATION_STATUS_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_STATUS_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -543,7 +543,7 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`"))
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `SILVER_NYC_WEATHER_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `SILVER_NYC_WEATHER_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_NYC_WEATHER_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -631,7 +631,7 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`"))
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_HISTORY_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `SILVER_STATION_HISTORY_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -714,7 +714,7 @@ display(silver_station_history_df)
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `SILVER_WEATHER_HISTORY_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `SILVER_WEATHER_HISTORY_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_WEATHER_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
 
@@ -814,7 +814,7 @@ display(silver_weather_history_df)
 # MAGIC 
 # MAGIC The path to the table is stored in the following global variable: `SILVER_HISTORICAL_PATH`.
 # MAGIC 
-# MAGIC The directory its checkpoints are saved at are stored in the following global variable: `SILVER_HISTORICAL_CHECKPOINTS`.
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_HISTORICAL_CHECKPOINTS`.
 
 # COMMAND ----------
 
