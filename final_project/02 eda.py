@@ -3,6 +3,355 @@
 
 # COMMAND ----------
 
+# MAGIC %md 
+# MAGIC # Imports
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col, unix_timestamp, avg, expr, ceil, count, hour, count, when, col, month, expr, desc, date_format, dayofweek
+import matplotlib.pyplot as plt
+from pyspark.sql.functions import array, round
+import seaborn as sns
+
+
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC # Load-In Dataset
+
+# COMMAND ----------
+
+
+all_bike_rentals = spark.read.format("delta").load("dbfs:/FileStore/tables/G01/silver_historical.delta/")
+station_trips = all_bike_rentals.filter(all_bike_rentals.start_station_name == 'W 21 St & 6 Ave')
+
+
+# COMMAND ----------
+
+display(all_bike_rentals)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # What is the distribution of rideable types?
+
+# COMMAND ----------
+
+
+rental_counts = station_trips.groupby("rideable_type").agg(
+  count("rideable_type").alias("count")
+).withColumn("percentage", round(col("count") / bike_rentals.count() * 100, 2))
+
+rental_counts.toPandas().plot(kind="bar", x="rideable_type", y="percentage", legend=None)
+plt.title("Percentage of Bike Rentals by Rideable Type")
+plt.xlabel("Rideable Type")
+plt.ylabel("Percentage (%)")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # How long are the rentals?
+
+# COMMAND ----------
+
+
+# Calculate the duration of each rental in seconds
+station_trips = station_trips.withColumn(
+  "duration_sec",
+  unix_timestamp("ended_at") - unix_timestamp("started_at")
+)
+
+# Calculate the average duration of rentals in seconds, minutes, hours, days, weeks, months, and overall
+duration_avg = station_trips.agg(
+  avg(col("duration_sec")).alias("avg_duration_sec"),
+  expr("avg(duration_sec) / 60").alias("avg_duration_min"),
+).collect()[0]
+
+# Print the average durations
+print(f"Average rental duration in seconds: {duration_avg['avg_duration_sec']:.2f}")
+print(f"Average rental duration in minutes: {duration_avg['avg_duration_min']:.2f}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # What is the average duration by bike type?
+
+# COMMAND ----------
+
+station_trips = station_trips.withColumn("start_time", unix_timestamp(col("started_at"), "yyyy-MM-dd HH:mm:ss"))
+station_trips = station_trips.withColumn("end_time", unix_timestamp(col("ended_at"), "yyyy-MM-dd HH:mm:ss"))
+station_trips = station_trips.withColumn("trip_duration", (col("end_time") - col("start_time"))/60)
+
+display(station_trips.groupBy("rideable_type").agg(avg("trip_duration").alias("avg_trip_duration (min)"), count("*").alias("trip_count")))
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # What are the most popular end stations for rides that start at this station?
+
+# COMMAND ----------
+
+popular_end_stations = station_trips.groupBy('end_station_name').count().orderBy(desc('count'))
+display(popular_end_stations)
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # What is the average duration of rides that start at this station?
+
+# COMMAND ----------
+
+display(station_trips.agg(avg(expr("unix_timestamp(ended_at) - unix_timestamp(started_at)")).alias("avg_duration")))
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # What are the seasonal trip trends for each season?
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## How many bike rides are done each season?
+
+# COMMAND ----------
+
+station_trips = station_trips.withColumn("season", when((month(col("started_at")) >= 3) & (month(col("started_at")) <= 5), "Spring")
+.when((month(col("started_at")) >= 6) & (month(col("started_at")) <= 8), "Summer")
+.when((month(col("started_at")) >= 9) & (month(col("started_at")) <= 11), "Fall")
+.otherwise("Winter"))
+
+# Create a bar chart to show the total number of trips for each season
+season_counts = station_trips.groupBy("season").count().orderBy("season").toPandas()
+sns.barplot(x="season", y="count", data=season_counts)
+plt.title("Total Number of Trips by Season")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC Here we can see that Winter has the most bike rides with both Summer and Spring behind it. Fall doesn't seem to have that much data. It's hard to get a pattern here because we only have one year of data.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## What is the average trip duration by season?
+
+# COMMAND ----------
+
+# Create a boxplot to show the distribution of trip durations for each season
+season_durations = station_trips.groupBy("season").agg(avg("trip_duration").alias("avg_duration")).orderBy("season").toPandas()
+sns.barplot(x="season", y="avg_duration", data=season_durations)
+plt.title("Average Trip Duration by Season")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC We can see that both Fall and Summer have slightly longer trips, while both Spring and Winter are slightly lower. We can take a look at that average temperature to see if that's what is causing the different durations.
+
+# COMMAND ----------
+
+season_temps = station_trips.groupBy("season").agg(avg("tempF").alias("avg_temp")).orderBy("season").toPandas()
+sns.barplot(x="season", y="avg_temp", data=season_temps)
+plt.title("Average Temperature by Season")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC I am guessing that the weather conditions in Spring had elements of Winter making it harder for people to bike as long, while in Fall, there were elements of Summer. What I mean by this is that: People wanted to bike longer when there was better weather conditions, while when there was worse conditions, people just wanted to get quickly to their destination. We can look at the actual weather conditions to see if this is the case. Additionally, there is a lack of Fall data, so that could skew the visuals.
+
+# COMMAND ----------
+
+
+# Create a heatmap to show the number of trips by day of week and season
+season_weekdays = station_trips.groupBy("season", date_format("started_at", "EEEE").alias("day_of_week")).count().orderBy(["season", "day_of_week"]).toPandas()
+season_weekdays = season_weekdays.pivot(index="day_of_week", columns="season", values="count")
+sns.heatmap(season_weekdays, cmap="Blues")
+plt.title("Number of Trips by Day of Week and Season")
+plt.show()
+
+
+# COMMAND ----------
+
+for season in ["Spring", "Summer", "Fall", "Winter"]:
+    season_trips = station_trips.filter(station_trips.season == season)
+    season_hourly = season_trips.groupBy(date_format("started_at", "EEEE").alias("day_of_week"), hour("started_at").alias("hour")).count().orderBy(["day_of_week", "hour"]).toPandas()
+    sns.lineplot(x="hour", y="count", hue="day_of_week", data=season_hourly)
+    plt.title(f"Number of Trips by Day of Week and Hour ({season})")
+    plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # What are the monthly trip trends for each season? 
+
+# COMMAND ----------
+
+
+# Group the data by season and month, and count the number of trips
+season_month_trips = station_trips.groupBy("season", month("started_at").alias("month")).count()
+
+# Order the data by season and month
+season_month_trips = season_month_trips.orderBy(["season", "month"])
+
+# Convert to a pandas DataFrame and plot a line chart
+season_month_trips_pd = season_month_trips.toPandas()
+sns.barplot(x="month", y="count", hue="season", data=season_month_trips_pd)
+plt.title("Total Number of Trips by Month and Season")
+plt.show()
+
+
+# COMMAND ----------
+
+# Group the data by season, month, and start station, and calculate the average trip duration
+season_month_duration = station_trips.groupBy("season", month("started_at").alias("month"), "start_station_name").agg(avg("trip_duration").alias("avg_duration"))
+
+# Order the data by season, month, and average duration
+season_month_duration = season_month_duration.orderBy(["season", "month", desc("avg_duration")])
+
+# Convert to a pandas DataFrame and plot a line chart
+season_month_duration_pd = season_month_duration.toPandas()
+sns.barplot(x="month", y="avg_duration", hue="season", data=season_month_duration_pd)
+plt.title("Average Trip Duration by Month and Season")
+plt.show()
+
+
+# COMMAND ----------
+
+# Define the desired order of months and weekdays
+month_order = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+# Group the data by season, month, and day of week, and count the number of trips
+season_month_weekday_trips = station_trips.groupBy("season", month("started_at").alias("month"), dayofweek("started_at").alias("weekday")).count()
+
+# Order the data by season, month, and weekday
+season_month_weekday_trips = season_month_weekday_trips.orderBy(["season", month("started_at"), dayofweek("started_at")])
+
+# Convert to a pandas DataFrame and plot a heatmap
+season_month_weekday_trips_pd = season_month_weekday_trips.toPandas()
+season_month_weekday_trips_pd["month"] = pd.Categorical(season_month_weekday_trips_pd["month"].apply(lambda x: month_order[x-1]), categories=month_order)
+season_month_weekday_trips_pd["weekday"] = pd.Categorical(season_month_weekday_trips_pd["weekday"].apply(lambda x: weekday_order[x-1]), categories=weekday_order)
+sns.heatmap(data=season_month_weekday_trips_pd.pivot(index="weekday", columns=["month", "season"], values="count"), cmap="YlGnBu")
+plt.title("Total Number of Trips by Month, Season, and Day of Week")
+plt.show()
+
+
+# COMMAND ----------
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+station_trips_pandas = station_trips.toPandas()
+station_trips_pandas['started_at_month'] = pd.to_datetime(station_trips['started_at']).dt.month
+
+# Group the data by month and user type, and count the number of trips
+monthly_user_trips = station_trips_pandas.groupby(['started_at_month', 'member_casual']).size().reset_index(name='count')
+
+# Pivot the data to have user types as columns and months as rows
+monthly_user_trips_pivot = monthly_user_trips.pivot(index='started_at_month', columns='member_casual', values='count')
+
+# Plot the data as a line graph
+monthly_user_trips_pivot.plot(kind='line', figsize=(10,5))
+plt.title('Monthly Trend by User Type')
+plt.xlabel('Month')
+plt.ylabel('Number of Trips')
+plt.show()
+
+
+# COMMAND ----------
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Convert the started_at column to datetime type and extract the month and hour
+station_trips_pandas['started_at_month'] = pd.to_datetime(station_trips['started_at']).dt.month
+station_trips_pandas['started_at_hour'] = pd.to_datetime(station_trips['started_at']).dt.hour
+
+# Group the data by month and hour, and count the number of trips
+hourly_trips = station_trips.groupby(['started_at_month', 'started_at_hour']).size().reset_index(name='count')
+
+# Pivot the data to have hours as columns and months as rows
+hourly_trips_pivot = hourly_trips.pivot(index='started_at_month', columns='started_at_hour', values='count')
+
+# Plot the data as a line graph
+hourly_trips_pivot.plot(kind='line', figsize=(10,5))
+plt.title('Hourly Trend by Month')
+plt.xlabel('Month')
+plt.ylabel('Number of Trips')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC # What are the seasonal trip trends for each season?
+
+# COMMAND ----------
+
+display(station_trips)
+
+# COMMAND ----------
+
+weather_counts = station_trips['main'].value_counts()
+weather_counts.plot(kind='bar')
+
+
+# COMMAND ----------
+
+
+# Convert the `started_at` column to a pandas datetime object
+station_trips['started_at'] = pd.to_datetime(station_trips['started_at'])
+
+# Group the data by month and weather type, and count the number of trips for each group
+monthly_weather_trips = station_trips.groupby([station_trips['started_at'].dt.month, 'main'])['ride_id'].count().reset_index(name='num_trips')
+
+# Plot a line chart showing the trend of trips over different weather types for each month
+sns.lineplot(data=monthly_weather_trips, x='started_at', y='num_trips', hue='main')
+
+
+# COMMAND ----------
+
+sns.countplot(data=station_trips, x='member_casual', hue='main')
+
+
+# COMMAND ----------
+
+
+# Group data by hour of day and weather type
+hourly_weather = station_trips.groupby([station_trips['started_at'].dt.hour, 'main'])['ride_id'].count().reset_index(name='num_trips')
+
+# Create line plot
+sns.lineplot(data=hourly_weather, x='hour', y='tempF', hue='main')
+sns.lineplot(data=hourly_weather, x='hour', y='ride_count', hue='main')
+
+
+# COMMAND ----------
+
+dbutils.fs.ls('dbfs:/FileStore/tables/G01/')
 
 
 # COMMAND ----------
@@ -16,13 +365,17 @@
 
 # COMMAND ----------
 
-df = spark.read.format("delta").load("dbfs:/FileStore/tables/G01/silver_historical.delta/")
+bike_rentals = spark.read.format("delta").load("dbfs:/FileStore/tables/G01/silver_historical.delta/")
 
 
 
 # COMMAND ----------
 
-display(df)
+display(bike_rentals)
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
@@ -43,6 +396,65 @@ df = df.withColumn("total_bikes", when(df.rideable_type == "classic_bike", 1).\
                   otherwise(0))
 
 
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+from pyspark.sql.functions import count
+
+# Assuming your DataFrame is named 'df' and your columns are named 'month' and 'bike'
+# Group by the 'month' column and compute the average of the 'bike' column
+df_avg_bike = df.groupBy('month').agg(count('total_bikes').alias('avg_bike')).
+
+# Show the result
+df_avg_bike.show()
+
+
+# COMMAND ----------
+
+display(df.avg_bike)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import hour
+from pyspark.sql.functions import count
+from pyspark.sql.functions import hour, count, when, col
+
+
+display(df.groupBy(col('dt_hour')).agg(count(when(col("total_bikes") == 1, 1))))
+
+
+# COMMAND ----------
+
+from pyspark.sql.functions import hour, count, when, col
+
+capacity = 78
+
+usage_by_hour = df.groupBy(col('dt_hour')).agg(count(when(col("total_bikes") == 1, 1)).alias("num_bikes_used"))
+usage_by_hour = usage_by_hour.withColumn("capacity_used_percent", usage_by_hour["num_bikes_used"] / capacity * 100)
+
+
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col, least, count, when, lit
+
+capacity = 78
+
+usage_by_hour_minute = df.groupBy(col("dt_hour"), col("dt_minute")).agg(least(count(when(col("total_bikes") == 1, 1)), lit(capacity)).alias("num_bikes_used"))
+usage_by_hour_minute = usage_by_hour_minute.withColumn("capacity_used_percent", usage_by_hour_minute["num_bikes_used"] / lit(capacity) * 100)
+
+
+# COMMAND ----------
+
+display(usage_by_hour_minute)
 
 # COMMAND ----------
 
@@ -81,534 +493,6 @@ display(df)
 # MAGIC %md
 # MAGIC 
 # MAGIC Going to look at every season except for Summer, since I know the data isn't there. 
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC # Winter
-
-# COMMAND ----------
-
-winter = df.filter(col('seasons') == 'Winter')
-display(winter)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC Seems like December is the most active month for bikes, so I am going to visualize these in two groups: December, and then January and February. Added the other graphs just for awareness, nothing to really get from there until we dive deeper.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## December
-
-# COMMAND ----------
-
-december = df.filter(col('month') == 12)
-display(december)
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC 
-# MAGIC Curious why there are dips in general on: 3rd, 6th, 9th, 10th, 15th, 16th, and 18th. After that, it's the holiday season, so it's understandable why there aren't as many bikers.
-
-# COMMAND ----------
-
-# Define the desired day of month values
-day_values = [3, 6, 9, 10, 15, 16, 18]
-
-# Filter the 'winter' DataFrame by the desired day of month values
-december_filtered_neg = december.filter(col("day_of_month").isin(day_values))
-december_filtered_pos = december.filter(~ col("day_of_month").isin(day_values))
-
-
-# COMMAND ----------
-
-display(december_filtered_neg)
-
-# COMMAND ----------
-
-display(december_filtered_pos)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC In December, we are able to see that evenings regardless of dips or peaks, are when bikes are being used. However, there are dips more on weekends, and on weekdays, bikes are being used more. Curious if this a trend or not.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Jan and Feb
-
-# COMMAND ----------
-
-other_winter = df.filter((col('month') == 1) | (col('month') == 2))
-display(other_winter)
-
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC Again, there are dips and peaks. Let's take a look at them.
-
-# COMMAND ----------
-
-# Define the desired day of month values
-day_values = [3, 7, 11, 12, 14, 19, 20, 24, 22, 25, 29,31]
-
-# Filter the 'winter' DataFrame by the desired day of month values
-other_filtered_neg = other_winter.filter(col("day_of_month").isin(day_values))
-other_filtered_pos = other_winter.filter(~ col("day_of_month").isin(day_values))
-
-
-# COMMAND ----------
-
-display(other_filtered_neg)
-
-# COMMAND ----------
-
-display(other_filtered_pos)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## WINTER RECAP
-# MAGIC 
-# MAGIC We learned that weekdays around the evening are most important times. We will look at holidays more in depth, but in December, the holiday time period made bikes go down. Weekdays + Evenings is the current trend, let's look at other seasons to see if it's still valid.
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC # Spring
-
-# COMMAND ----------
-
-spring = df.filter(col('seasons') == 'Spring')
-display(spring)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Gonna split it up into 2 groups again: March & April AND May
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## March & April
-
-# COMMAND ----------
-
-main_spring = df.filter((col('month') == 3) | (col('month') == 4))
-display(main_spring)
-
-
-# COMMAND ----------
-
-# Define the desired day of month values
-day_values = [3, 6, 9, 12, 17, 19, 23, 24, 24, 28, 31]
-
-# Filter the 'winter' DataFrame by the desired day of month values
-other_filtered_neg = main_spring.filter(col("day_of_month").isin(day_values))
-other_filtered_pos = main_spring.filter(~ col("day_of_month").isin(day_values))
-
-
-# COMMAND ----------
-
-display(other_filtered_neg)
-
-# COMMAND ----------
-
-display(other_filtered_pos)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC There are more bikes being used on weekends on the negative dips. Same trends
-
-# COMMAND ----------
-
-may = df.filter((col('month') == 5))
-display(may)
-
-
-# COMMAND ----------
-
-# Define the desired day of month values
-day_values = [2, 6, 7, 14, 16, 18, 22, 24, 24, 27, 28]
-
-# Filter the 'winter' DataFrame by the desired day of month values
-other_filtered_neg = may.filter(col("day_of_month").isin(day_values))
-other_filtered_pos = may.filter(~ col("day_of_month").isin(day_values))
-
-
-# COMMAND ----------
-
-display(other_filtered_neg)
-
-# COMMAND ----------
-
-display(other_filtered_pos)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC SAME TREND! May most likely had more bikes used, just because of how warm it got, we will check later.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC # FALL
-
-# COMMAND ----------
-
-fall = df.filter(col('seasons') == 'Fall')
-display(fall)
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC 
-# MAGIC Gonna look at Fall as one group.
-
-# COMMAND ----------
-
-# Define the desired day of month values
-day_values = [11, 13, 15, 14, 18, 18, 24, 25, 31]
-
-# Filter the 'winter' DataFrame by the desired day of month values
-other_filtered_neg = fall.filter(col("day_of_month").isin(day_values))
-other_filtered_pos = fall.filter(~ col("day_of_month").isin(day_values))
-
-
-# COMMAND ----------
-
-display(other_filtered_neg)
-
-# COMMAND ----------
-
-display(other_filtered_pos)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC #LEGACY
-
-# COMMAND ----------
-
-start_date = str(dbutils.widgets.get('01.start_date'))
-end_date = str(dbutils.widgets.get('02.end_date'))
-hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
-
-print(start_date,end_date,hours_to_forecast, promote_model)
-print("YOUR CODE HERE...")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC # Looking at Started_At
-# MAGIC 
-# MAGIC Right here, I'm trying to just set up the basic graphs for one dataset, but when the ETL comes in, it should change.
-
-# COMMAND ----------
-
-from pyspark.sql.functions import to_timestamp, month, dayofmonth, hour, dayofweek
-
-
-data = spark.read.format('csv').option('header', 'true').load('dbfs:/FileStore/tables/raw/bike_trips/202302_citibike_tripdata.csv')
-data = data.filter(data['start_station_name'] == "W 21 St & 6 Ave")
-
-data = data.withColumn("timestamp_started_at", to_timestamp("started_at", "yyyy-MM-dd HH:mm:ss"))
-data = data.withColumn("timestamp_ended_at", to_timestamp("ended_at", "yyyy-MM-dd HH:mm:ss"))
-
-data = data.withColumn("month_started_at", month("timestamp_started_at"))
-data = data.withColumn("day_started_at", dayofmonth("timestamp_started_at"))
-data = data.withColumn("hour_started_at", hour("timestamp_started_at"))
-data = data.withColumn("dayofweek_started_at", dayofweek("timestamp_started_at"))
-
-data = data.withColumn("month_ending_at", month("timestamp_ended_at"))
-data = data.withColumn("day_ending_at", dayofmonth("timestamp_ended_at"))
-data = data.withColumn("hour_ending_at", hour("timestamp_ended_at"))
-data = data.withColumn("dayofweek_ending_at", dayofweek("timestamp_ended_at"))
-
-
-# COMMAND ----------
-
-display(data)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC We notice that the week-days have the most bike rentals, so let's look at the hours specifically for each week day.
-
-# COMMAND ----------
-
-monday = data.filter(data['dayofweek_started_at'] == 1)
-tuesday = data.filter(data['dayofweek_started_at'] == 2)
-wednesday = data.filter(data['dayofweek_started_at'] == 3)
-thursday = data.filter(data['dayofweek_started_at'] == 4)
-friday = data.filter(data['dayofweek_started_at'] == 5)
-
-
-# COMMAND ----------
-
-display(monday)
-
-# COMMAND ----------
-
-display(tuesday)
-
-# COMMAND ----------
-
-display(wednesday)
-
-# COMMAND ----------
-
-display(thursday)
-
-# COMMAND ----------
-
-display(friday)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC Gonna make an assumption here and I'm gonna say that 9-5 is the work schedule of most workers in this area, therefore, it seems like people on weekdays are generally getting their bikes when they go home, around the 4PM to 8PM time.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## ending_at
-# MAGIC 
-# MAGIC Gonna look at the same exact code but for the ending_at
-
-# COMMAND ----------
-
-display(data)
-
-# COMMAND ----------
-
-monday = data.filter(data['dayofweek_ending_at'] == 1)
-tuesday = data.filter(data['dayofweek_ending_at'] == 2)
-wednesday = data.filter(data['dayofweek_ending_at'] == 3)
-thursday = data.filter(data['dayofweek_ending_at'] == 4)
-friday = data.filter(data['dayofweek_ending_at'] == 5)
-
-
-# COMMAND ----------
-
-display(monday)
-
-# COMMAND ----------
-
-display(tuesday)
-
-# COMMAND ----------
-
-display(wednesday)
-
-# COMMAND ----------
-
-display(thursday)
-
-# COMMAND ----------
-
-display(friday)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC The same trends are valid for the ending times as well. It seems like overall the bikes are being used to go home rather than go to work. I don't have the monthly trends yet, nor can I look at seasonal trends, but this is my current hypothesis.
-
-# COMMAND ----------
-
-weather_data = spark.read.format('csv').option('header', 'true').load('dbfs:/FileStore/tables/raw/weather/NYC_Weather_Data.csv')
-weather_data = weather_data.withColumn("temp_f", (col("temp") - 273.15) * 9/5 + 32)
-
-weather_data = weather_data.withColumn("time", from_unixtime("dt"))
-
-weather_data = weather_data.withColumn("timestamp", to_timestamp("time", "yyyy-MM-dd HH:mm:ss"))
-
-weather_data = weather_data.withColumn("month", month("timestamp"))
-weather_data = weather_data.withColumn("day", dayofmonth("timestamp"))
-weather_data = weather_data.withColumn("hour", hour("timestamp"))
-weather_data = weather_data.withColumn("dayofweek", dayofweek("timestamp"))
-
-
-# COMMAND ----------
-
-display(weather_data)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC For now, let's look at trends with temperature.
-
-# COMMAND ----------
-
-display(weather_data)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC This data alone won't really do anything, but we can notice that summer basically isn't in the dataset. Let's try to combine our current weather datasets with bike dataset.
-
-# COMMAND ----------
-
-display(data)
-display(weather_data)
-
-
-
-# COMMAND ----------
-
-# Convert the started_at column in data to TimestampType
-data = data.withColumn("started_at", to_timestamp("started_at", "yyyy-MM-dd HH:mm:ss"))
-
-# Convert the TimestampType column to the desired format
-data = data.withColumn("started_at", date_format("started_at", "yyyy-MM-dd HH:00:00"))
-
-
-# COMMAND ----------
-
-display(data)
-
-# COMMAND ----------
-
-
-# Join the two DataFrames on the renamed datetime column and the started_at column
-joined_data = data.join(weather_data, data.started_at == weather_data.time)
-
-
-# COMMAND ----------
-
-display(joined_data)
-
-# COMMAND ----------
-
-display(data)
-display(weather_data)
-
-
-
-# COMMAND ----------
-
-display(data)
-data = spark.read.format('csv').option('header', 'true').load('dbfs:/FileStore/tables/raw/weather/NYC_Weather_Data.csv')
-
-display(data)
-
-# COMMAND ----------
-
-display(data.groupBy('rideable_type').count().orderBy(F.desc('count')))
-
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-from pyspark.sql.functions import to_timestamp
-
-station_info_df = station_info_df.filter(station_info_df['name'] == "W 21 St & 6 Ave")
-station_status_df = station_status_df.filter(station_status_df['station_id'] == "66dc120f-0aca-11e7-82f6-3863bb44ef7c")
-station_df = station_info_df.join(station_status_df, on='station_id')
-station_df = station_df.withColumn('time', to_timestamp('last_reported'))
-nyc_weather_df = nyc_weather_df.withColumn('time', to_timestamp('dt'))
-
-
-# COMMAND ----------
-
-from pyspark.sql.functions import to_timestamp
-
-station_df = station_df.withColumn('time', to_timestamp('last_reported'))
-
-# COMMAND ----------
-
-from pyspark.sql.functions import col
-
-station_df = station_df.withColumn("num_vehicles_used", col("capacity") - col("num_docks_available"))
-station_df = station_df.withColumn("num_bikes_used", col("capacity") - col("num_ebikes_available") - col("num_docks_available"))
-station_df = station_df.withColumn("num_ebikes_used", col("capacity") - col("num_bikes_available") - col("num_docks_available"))
-
-# COMMAND ----------
-
-from pyspark.sql.functions import to_timestamp, month, dayofmonth, hour, dayofweek
-
-station_df = station_df.withColumn("timestamp", to_timestamp("time", "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
-
-station_df = station_df.withColumn("month", month("timestamp"))
-station_df = station_df.withColumn("day", dayofmonth("timestamp"))
-station_df = station_df.withColumn("hour", hour("timestamp"))
-station_df = station_df.withColumn("dayofweek", dayofweek("timestamp"))
-
-
-# COMMAND ----------
-
-display(station_df)
-
-# COMMAND ----------
-
-display(station_df)
-
-# COMMAND ----------
-
-display(station_df)
-
-# COMMAND ----------
-
-from pyspark.sql.functions import to_timestamp, month, dayofmonth, hour, dayofweek
-
-nyc_weather_df = nyc_weather_df.withColumn("timestamp", to_timestamp("time", "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
-
-nyc_weather_df = nyc_weather_df.withColumn("month", month("timestamp"))
-nyc_weather_df = nyc_weather_df.withColumn("day", dayofmonth("timestamp"))
-nyc_weather_df = nyc_weather_df.withColumn("hour", hour("timestamp"))
-nyc_weather_df = nyc_weather_df.withColumn("dayofweek", dayofweek("timestamp"))
-
-
-# COMMAND ----------
-
-from pyspark.sql.functions import col
-
-nyc_weather_df = nyc_weather_df.withColumn("temp_f", (col("temp") - 273.15) * 9/5 + 32)
-
-
-# COMMAND ----------
-
-display(nyc_weather_df)
-
-
-
-
-
-# COMMAND ----------
-
-display(nyc_weather_df)
-
 
 # COMMAND ----------
 
