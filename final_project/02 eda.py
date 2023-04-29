@@ -1252,6 +1252,10 @@ plt.show()
 
 # COMMAND ----------
 
+display(daily_trips)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC
 # MAGIC ## How does weather affect the daily/hourly trend of system use?
@@ -1313,9 +1317,9 @@ plt.show()
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-plt.figure(figsize=(15, 8)) 
+plt.figure(figsize=(30, 8)) 
 ax1 = sns.lineplot(x='date', y='avg_tempF', data=daily_trips, label='Temperature (F)')
-ax1.set_xticks(ax1.get_xticks()[::45]) 
+ax1.set_xticks(ax1.get_xticks()[::90]) 
 
 ax2 = ax1.twinx()
 sns.lineplot(x='date', y='num_trips', data=daily_trips, ax=ax2, color='r', label='Num Trips')
@@ -1363,7 +1367,7 @@ plt.show()
 
 # COMMAND ----------
 
-plt.figure(figsize=(15, 8)) 
+plt.figure(figsize=(30, 8)) 
 ax1 = sns.lineplot(x='date', y='avg_wind_speed_mph', data=daily_trips, label='Wind Speed (mph)')
 ax1.set_xticks(ax1.get_xticks()[::45]) 
 
@@ -1412,8 +1416,8 @@ plt.show()
 
 # COMMAND ----------
 
-plt.figure(figsize=(15, 8)) 
-ax1 = sns.lineplot(x='date', y='avg_pop', data=daily_trips, label='Population Density')
+plt.figure(figsize=(30, 8)) 
+ax1 = sns.lineplot(x='date', y='avg_pop', data=daily_trips, label='Probability of Precipitation')
 ax1.set_xticks(ax1.get_xticks()[::45]) 
 
 ax2 = ax1.twinx()
@@ -1459,7 +1463,7 @@ plt.show()
 # COMMAND ----------
 
 
-plt.figure(figsize=(15, 8)) 
+plt.figure(figsize=(30, 8)) 
 ax1 = sns.lineplot(x='date', y='avg_humidity', data=daily_trips, label='Humidity')
 ax1.set_xticks(ax1.get_xticks()[::45]) 
 
@@ -1506,7 +1510,7 @@ plt.show()
 
 # COMMAND ----------
 
-plt.figure(figsize=(15, 8))
+plt.figure(figsize=(30, 8)) 
 ax1 = sns.lineplot(x='date', y='avg_snow_1h', data=daily_trips, label='Snow (mm)')
 ax1.set_xticks(ax1.get_xticks()[::45])
 
@@ -1557,7 +1561,7 @@ plt.show()
 
 # COMMAND ----------
 
-plt.figure(figsize=(15, 8)) 
+plt.figure(figsize=(30, 8)) 
 ax1 = sns.lineplot(x='date', y='avg_rain_1h', data=daily_trips, label='Rain (mm)')
 ax1.set_xticks(ax1.get_xticks()[::45]) 
 
@@ -1594,3 +1598,18 @@ ax1.legend(labels=['Rain (mm)'], loc='upper left')
 ax2.legend(labels=['Num Trips'], loc='upper right')
 
 plt.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Note: The date timeseries starts in November 2021 and ends in March 2023.
+# MAGIC
+# MAGIC When looking at weather patterns, we first decided to examine the relationship between temperature (F) and the number of trips. Generally, they follow the same pattern except for the start period. When we look at the hour, the number of trips falls significantly in the morning while the temperature stays around 52 degrees Fahrenheit. During the afternoon and evening, both start to rise. For wind speed, it generally follows the same pattern. This is the same per hour, where they both fall in the morning and rise in the evening. Honestly, this is a bit weird because you would think that more wind would lead to fewer bike rides. However, according to the correlation matrix, they are not that correlated. Probability of Precipitation and Number of Rides do not seem to match at all. Humidity and the Number of Bike Rides seem like polar opposites. Both snowfall and rainfall seem to have a significant effect on the number of bikes rented. It's difficult to see, but whenever there is rain or snow, the number of bikes rented seems to decrease.
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+
