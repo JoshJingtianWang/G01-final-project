@@ -18,6 +18,7 @@ from pyspark.sql.functions import dense_rank
 from pyspark.sql.window import Window
 from pyspark.sql.types import IntegerType
 import pandas as pd
+from pyspark.sql.functions import count, mean
 
 
 # COMMAND ----------
@@ -1608,8 +1609,24 @@ plt.show()
 
 # COMMAND ----------
 
+from pyspark.sql.functions import count, mean
+
+grouped_by_main = (station_trips
+                   .groupBy('main', 'description')
+                   .agg(count('ride_id').alias('num_trips'),
+                        mean('tempF').alias('avg_tempF'),
+                        mean('wind_speed_mph').alias('avg_wind_speed_mph'),
+                        mean('pop').alias('avg_pop'),
+                        mean('humidity').alias('avg_humidity'),
+                        mean('snow_1h').alias('avg_snow_1h'),
+                        mean('rain_1h').alias('avg_rain_1h'),
+                        mean('trip_duration').alias('avg_trip_duration')))
+
+display(grouped_by_main)
+
+
 
 
 # COMMAND ----------
 
-
+# MAGIC %md Here we can take a look at the different types of weather patterns that happen. 
