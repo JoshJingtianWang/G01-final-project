@@ -13,19 +13,19 @@
 
 # COMMAND ----------
 
-start_date = str(dbutils.widgets.get('01.start_date'))
-end_date = str(dbutils.widgets.get('02.end_date'))
-hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
+# start_date = str(dbutils.widgets.get('01.start_date'))
+# end_date = str(dbutils.widgets.get('02.end_date'))
+# hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
+# promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
 
-print(start_date,end_date,hours_to_forecast, promote_model)
-print("YOUR CODE HERE...")
+# print(start_date,end_date,hours_to_forecast, promote_model)
+# print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC # Initial setup
-# MAGIC 
+# MAGIC
 # MAGIC First, we will import necessary modules, change configuration settings, and define useful constants.
 
 # COMMAND ----------
@@ -35,7 +35,7 @@ from datetime import datetime
 import holidays
 import pyspark.sql.functions as F
 from pyspark.sql.functions import col, expr, from_unixtime
-from pyspark.sql.functions import hour, minute, second, to_date
+from pyspark.sql.functions import hour, minute, second, to_date, to_timestamp
 from pyspark.sql.types import *
 
 # COMMAND ----------
@@ -74,7 +74,7 @@ from pyspark.sql.types import *
 # MAGIC - `name`: string (nullable = true)
 # MAGIC - `rental_uris.ios`: string (nullable = true)
 # MAGIC - `rental_uris.android`: string (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `BRONZE_STATION_INFO_PATH`.
 
 # COMMAND ----------
@@ -85,8 +85,6 @@ bronze_station_info_df = (
     .format("delta")
     .load(BRONZE_STATION_INFO_PATH)
 )
-
-display(bronze_station_info_df)
 
 # COMMAND ----------
 
@@ -119,7 +117,7 @@ display(bronze_station_info_df)
 # MAGIC - `valet.off_dock_count`: double (nullable = true)
 # MAGIC - `valet.station_id`: string (nullable = true)
 # MAGIC - `valet.valet_revision`: double (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `BRONZE_STATION_STATUS_PATH`.
 
 # COMMAND ----------
@@ -129,9 +127,7 @@ bronze_station_status_df = (
     .read
     .format("delta")
     .load(BRONZE_STATION_STATUS_PATH)
-)
 
-display(bronze_station_status_df)
 
 # COMMAND ----------
 
@@ -163,7 +159,7 @@ display(bronze_station_status_df)
 # MAGIC - `pop`: double (nullable = true)
 # MAGIC - `rain.1h`: double (nullable = true)
 # MAGIC - `time`: string (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `BRONZE_NYC_WEATHER_PATH`.
 
 # COMMAND ----------
@@ -173,9 +169,7 @@ bronze_nyc_weather_df = (
     .read
     .format("delta")
     .load(BRONZE_NYC_WEATHER_PATH)
-)
 
-display(bronze_nyc_weather_df)
 
 # COMMAND ----------
 
@@ -190,7 +184,7 @@ display(bronze_nyc_weather_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the historical station data bronze table:
 # MAGIC - `ride_id`: string (nullable = true)
 # MAGIC - `rideable_type`: string (nullable = true)
@@ -206,9 +200,9 @@ display(bronze_nyc_weather_df)
 # MAGIC - `end_lng`: string (nullable = true)
 # MAGIC - `member_casual`: string (nullable = true)
 # MAGIC - `_rescued_data`: string (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `BIKE_TRIP_DATA_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `BRONZE_STATION_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
@@ -228,15 +222,13 @@ bronze_station_history_df = (
     .option("mergeSchema", "true")
     .option("cloudFiles.schemaLocation", BRONZE_STATION_HISTORY_CHECKPOINTS)
     .load(BIKE_TRIP_DATA_PATH)
-)
 
-display(bronze_station_history_df)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC Now that we have started the stream, we can write the stream to a new bronze table.
-# MAGIC 
+# MAGIC
 # MAGIC We use the `.outputMode("append")` here to ensure that only new data is written to the table.
 
 # COMMAND ----------
@@ -253,7 +245,7 @@ bronze_station_history_query = (
 
 # COMMAND ----------
 
-display(spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`"))
+spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`")
 
 # COMMAND ----------
 
@@ -263,7 +255,7 @@ display(spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`"))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the historical weather data bronze table:
 # MAGIC - `dt`: string (nullable = true)
 # MAGIC - `temp`: string (nullable = true)
@@ -289,9 +281,9 @@ display(spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`"))
 # MAGIC - `timezone_offset`: string (nullable = true)
 # MAGIC - `rain_1h`: string (nullable = true)
 # MAGIC - `_rescued_data`: string (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `NYC_WEATHER_FILE_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `BRONZE_WEATHER_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
@@ -313,13 +305,13 @@ bronze_weather_history_df = (
     .load(NYC_WEATHER_FILE_PATH)
 )
 
-display(bronze_station_history_df)
+bronze_station_history_df
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC Now that we have started the stream, we can write the data to a new bronze table.
-# MAGIC 
+# MAGIC
 # MAGIC We use the `.mode("append")` here to ensure that only new data is written to the table.
 
 # COMMAND ----------
@@ -336,7 +328,7 @@ bronze_weather_history_query = (
 
 # COMMAND ----------
 
-display(spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`"))
+spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`")
 
 # COMMAND ----------
 
@@ -356,7 +348,7 @@ display(spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`"))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the station info silver table:
 # MAGIC - `has_kiosk`: boolean (nullable = true)
 # MAGIC - `station_type`: string (nullable = true)
@@ -377,16 +369,16 @@ display(spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`"))
 # MAGIC - `rental_uris`.android: string (nullable = true)
 # MAGIC - `uses_key`: boolean (nullable = true)
 # MAGIC - `uses_method_credit_card`: boolean (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_INFO_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_INFO_CHECKPOINTS`.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC There are other transformations that can be done on the station info silver table, but currently are not being done. This is because these transformations do not seem to serve a purpose for the rest of the team, and will essentially only slow down the project by adding unnecessary overhead and computations. Examples of these transformations are:
-# MAGIC 
+# MAGIC
 # MAGIC - There are null values in columns such as `region_id` and could benefit from data imputation or filtering
 # MAGIC - The `rental_methods` columns is a struct and could be exploded into multiple rows
 
@@ -398,8 +390,6 @@ silver_station_info_df = (
     .withColumn("uses_key", F.array_contains(col("rental_methods"), "KEY"))
     .withColumn("uses_method_credit_card", F.array_contains(col("rental_methods"), "CREDITCARD"))
 )
-
-display(silver_station_info_df)
 
 # COMMAND ----------
 
@@ -415,7 +405,7 @@ silver_station_info_query = (
 
 # COMMAND ----------
 
-display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`"))
+spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`")
 
 # COMMAND ----------
 
@@ -425,7 +415,7 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`"))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the station status silver table:
 # MAGIC - `num_ebikes_available`: long (nullable = true)
 # MAGIC - `is_installed`: long (nullable = true)
@@ -453,16 +443,16 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`"))
 # MAGIC - `last_reported_hour`: integer (nullable = true)
 # MAGIC - `last_reported_minute`: integer (nullable = true)
 # MAGIC - `last_reported_second`: integer (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_STATUS_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_STATUS_CHECKPOINTS`.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC There are other transformations that can be done on the station staus silver table, but currently are not being done. This is because these transformations do not seem to serve a purpose for the rest of the team, and will essentially only slow down the project by adding unnecessary overhead and computations. Examples of these transformations are:
-# MAGIC 
+# MAGIC
 # MAGIC - The `num_scooters` column has some null values and could benefit from data imputation or filtering
 # MAGIC - The `valet` columns have a lot of null values and could benefit from data imputation or filtering
 
@@ -478,8 +468,6 @@ silver_station_status_df = (
     .withColumn("last_reported_second", second(col("last_reported")))
 )
 
-display(silver_station_status_df)
-
 # COMMAND ----------
 
 silver_station_status_query = (
@@ -494,7 +482,7 @@ silver_station_status_query = (
 
 # COMMAND ----------
 
-display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`"))
+spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`")
 
 # COMMAND ----------
 
@@ -504,7 +492,7 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`"))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the NYC weather silver table:
 # MAGIC - `dt`: timestamp (nullable = true)
 # MAGIC - `tempK`: double (nullable = true)
@@ -540,9 +528,9 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`"))
 # MAGIC - `weather_icon`: string (nullable = true)
 # MAGIC - `weather_id`: long (nullable = true)
 # MAGIC - `weather_main`: string (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `SILVER_NYC_WEATHER_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_NYC_WEATHER_CHECKPOINTS`.
 
 # COMMAND ----------
@@ -577,8 +565,6 @@ silver_nyc_weather_df = (
     .withColumn("weather_main", col("weather").getItem("main"))
 )
 
-display(silver_nyc_weather_df)
-
 # COMMAND ----------
 
 silver_nyc_weather_query = (
@@ -593,7 +579,7 @@ silver_nyc_weather_query = (
 
 # COMMAND ----------
 
-display(spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`"))
+spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`")
 
 # COMMAND ----------
 
@@ -603,7 +589,7 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`"))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the historical station silver table:
 # MAGIC - `ride_id`: string (nullable = true)
 # MAGIC - `rideable_type`: string (nullable = true)
@@ -628,9 +614,9 @@ display(spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`"))
 # MAGIC - `ended_at_minute`: integer (nullable = true)
 # MAGIC - `ended_at_second`: integer (nullable = true)
 # MAGIC - `is_holiday`: boolean (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_HISTORY_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
@@ -665,8 +651,6 @@ silver_station_history_df = (
     .withWatermark("started_at", "1 minutes")
 )
 
-display(silver_station_history_df)
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -675,7 +659,7 @@ display(silver_station_history_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the historical weather silver table:
 # MAGIC - `dt`: timestamp (nullable = true)
 # MAGIC - `tempK`: string (nullable = true)
@@ -710,10 +694,10 @@ display(silver_station_history_df)
 # MAGIC - `dt_hour`: integer (nullable = true)
 # MAGIC - `dt_minute`: integer (nullable = true)
 # MAGIC - `dt_second`: integer (nullable = true)
-# MAGIC 
-# MAGIC 
+# MAGIC
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `SILVER_WEATHER_HISTORY_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_WEATHER_HISTORY_CHECKPOINTS`.
 
 # COMMAND ----------
@@ -743,8 +727,6 @@ silver_weather_history_df = (
     .withWatermark("dt", "1 minutes")
 )
 
-display(silver_weather_history_df)
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -753,7 +735,7 @@ display(silver_weather_history_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC The following is the schema for the joined historical silver table:
 # MAGIC - `ride_id`: string (nullable = true)
 # MAGIC - `rideable_type`: string (nullable = true)
@@ -811,9 +793,9 @@ display(silver_weather_history_df)
 # MAGIC - `dt_hour`: integer (nullable = true)
 # MAGIC - `dt_minute`: integer (nullable = true)
 # MAGIC - `dt_second`: integer (nullable = true)
-# MAGIC 
+# MAGIC
 # MAGIC The path to the table is stored in the following global variable: `SILVER_HISTORICAL_PATH`.
-# MAGIC 
+# MAGIC
 # MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_HISTORICAL_CHECKPOINTS`.
 
 # COMMAND ----------
@@ -827,8 +809,6 @@ silver_historical_df = silver_station_history_df.join(
     # Perform a left join so that all station rows are kept
     how="left",
 )
-
-display(silver_historical_df)
 
 # COMMAND ----------
 
@@ -845,18 +825,190 @@ silver_historical_query = (
 
 # COMMAND ----------
 
-display(spark.sql(f"OPTIMIZE delta.`{SILVER_HISTORICAL_PATH}`"))
+spark.sql(f"OPTIMIZE delta.`{SILVER_HISTORICAL_PATH}`")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Historical modeling table
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC After the creation of the above tables, which were mostly based on the needs of the EDA team, the modeling team requested certain transformations on the tables. We decided internally that it would be best to just create new tables instead of disrupting the EDA notebook, at least in the short term due to time constraints.
+# MAGIC
+# MAGIC Ideally, these tables would be condensed somehow, and this inefficiency will be discussed further when we critique our project.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
+# MAGIC The following is the schema for the historical modeling silver table:
+# MAGIC - `ds`: timestamp (nullable = true)
+# MAGIC - `temperature`: double (nullable = true)
+# MAGIC - `feels_like`: double (nullable = true)
+# MAGIC - `precipitation`: double (nullable = true)
+# MAGIC - `y`: long (nullable = true)
+# MAGIC
+# MAGIC The path to the table is stored in the following global variable: `SILVER_MODELING_HISTORICAL_PATH`.
+# MAGIC
+# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_MODELING_HISTORICAL_CHECKPOINTS`.
+
+# COMMAND ----------
+
+# Read the historical silver table as streaming the training data is unnecessary
+historical_df = (
+    spark
+    .read
+    .format("delta")
+    .option("checkpointLocation", SILVER_HISTORICAL_CHECKPOINTS)
+    .load(SILVER_HISTORICAL_PATH)
+)
+
+# COMMAND ----------
+
+model_started_df = (
+    historical_df
+    # Extract only the columns relevant to modeling
+    .select(
+        col("started_at_date"),
+        col("started_at_hour"),
+        col("tempF"),
+        col("feels_likeF"),
+        col("rain_1h"),
+    )
+    # Filter out any irrelevant stations
+    .filter(
+        col("start_station_name") == GROUP_STATION_ASSIGNMENT
+    )
+    # Group by date and hour
+    .groupBy(
+        col("started_at_date"),
+        col("started_at_hour"),
+    )
+    # Perform aggregations
+    .agg(
+        F.count("started_at_date").alias("count_departed"),
+        F.avg("tempF").alias("start_temperature"),
+        F.avg("feels_likeF").alias("start_feels_like"),
+        F.avg("rain_1h").alias("start_precipitation"),
+    )
+    # Order by date and hour
+    .orderBy(
+        col("started_at_date"), col("started_at_hour"), ascending=True
+    )
+)
+
+# COMMAND ----------
+
+model_ended_df = (
+    historical_df
+    # Extract only the columns relevant to modeling
+    .select(
+        col("ended_at_date"),
+        col("ended_at_hour"),
+        col("tempF"),
+        col("feels_likeF"),
+        col("rain_1h"),
+    )
+    # Filter out any irrelevant stations
+    .filter(
+        col("end_station_name") == GROUP_STATION_ASSIGNMENT
+    )
+    # Group by date and hour
+    .groupBy(
+        col("ended_at_date"),
+        col("ended_at_hour"),
+    )
+    # Perform aggregations
+    .agg(
+        F.count("ended_at_date").alias("count_arrived"),
+        F.avg("tempF").alias("end_temperature"),
+        F.avg("feels_likeF").alias("end_feels_like"),
+        F.avg("rain_1h").alias("end_precipitation"),
+    )
+    # Order by date and hour
+    .orderBy(
+        col("ended_at_date"), col("ended_at_hour"), ascending=True
+    )
+)
+
+# COMMAND ----------
+
+silver_historical_modeling_df = (
+    # Outer join the previous two dataframes
+    model_started_df.join(
+        model_ended_df,
+        (model_started_df["started_at_date"] == model_ended_df["ended_at_date"]) & (model_started_df["started_at_hour"] == model_ended_df["ended_at_hour"]),
+        how="outer"
+    )
+    # Coalesce the date and hour columns
+    .withColumn("date", F.coalesce("started_at_date", "ended_at_date"))
+    .withColumn("hour", F.coalesce("started_at_hour", "ended_at_hour"))
+    # Combine the date and hour columns into datetime format
+    .withColumn("ds", F.concat_ws(" ", "date", "hour"))
+    .withColumn("ds", to_timestamp("ds", "yyyy-MM-dd H"))
+    # Coalesce the start and end regressor columns
+    .withColumn("temperature", F.coalesce("start_temperature", "end_temperature"))
+    .withColumn("feels_like", F.coalesce("start_feels_like", "end_feels_like"))
+    .withColumn("precipitation", F.coalesce("start_precipitation", "end_precipitation"))
+    # Fill any null values with 0
+    .na.fill(0, ["count_arrived", "count_departed"])
+    # Calculate the target variables -- net change in bikes over each hour
+    .withColumn("y", col("count_arrived") - col("count_departed"))
+    # Drop any unnecessary columns (done this way to keep pipeline dynamic)
+    .drop(
+        "date",
+        "hour",
+        "started_at_date",
+        "started_at_hour",
+        "ended_at_date",
+        "ended_at_hour",
+        "count_arrived",
+        "count_departed",
+        "start_temperature",
+        "end_temperature",
+        "start_feels_like",
+        "end_feels_like",
+        "start_precipitation",
+        "end_precipitation",
+    )
+    # Order by datetime
+    .orderBy(col("ds"), ascending=True)
+)
+
+# COMMAND ----------
+
+silver_historical_modeling_query = (
+    silver_historical_modeling_df
+    .write
+    .format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .option("checkpointLocation", SILVER_MODELING_HISTORICAL_CHECKPOINTS)
+    .save(SILVER_MODELING_HISTORICAL_PATH)
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Create gold tables
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Typically, gold tables created in the ETL pipeline by aggregating data from silver tables are used to store key business metrics. However, in the scope of this project, it makes the most sense to create the gold tables in the `application` notebook. Please navigate to `04 app` to see how to gold tables were created.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC # Clean up
-# MAGIC 
+# MAGIC
 # MAGIC Finally, we can perform operations that will clean up and exit the notebook.
 
 # COMMAND ----------
 
-import json
+# import json
 
-# Return Success
-dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
+# # Return Success
+# dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))

@@ -28,6 +28,8 @@ SILVER_NYC_WEATHER_PATH = construct_nested_group_path("silver_nyc_weather.delta"
 SILVER_STATION_HISTORY_PATH = construct_nested_group_path("silver_station_history.delta")
 SILVER_WEATHER_HISTORY_PATH = construct_nested_group_path("silver_weather_history.delta")
 SILVER_HISTORICAL_PATH = construct_nested_group_path("silver_historical.delta")
+SILVER_MODELING_HISTORICAL_PATH = construct_nested_group_path("silver_modeling_historical.delta")
+SILVER_MODELING_UNSEEN_PATH = construct_nested_group_path("silver_modeling_unseen.delta")
 
 # Define the directories that will store checkpoints for the bronze tables
 BRONZE_STATION_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "bronze_station_history")
@@ -40,6 +42,8 @@ SILVER_NYC_WEATHER_CHECKPOINTS = construct_nested_group_path("_checkpoints", "si
 SILVER_STATION_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_station_history")
 SILVER_WEATHER_HISTORY_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_weather_history")
 SILVER_HISTORICAL_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_historical")
+SILVER_MODELING_HISTORICAL_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_modeling_historical")
+SILVER_MODELING_UNSEEN_CHECKPOINTS = construct_nested_group_path("_checkpoints", "silver_modeling_unseen")
 
 # COMMAND ----------
 
@@ -52,6 +56,8 @@ rows = [
     ["SILVER_STATION_HISTORY_PATH", SILVER_STATION_HISTORY_PATH, "Historical NYC Weather (silver)"],
     ["SILVER_WEATHER_HISTORY_PATH", SILVER_WEATHER_HISTORY_PATH, "Historical Station Data (silver)"],
     ["SILVER_HISTORICAL_PATH", SILVER_HISTORICAL_PATH, "Historical Data (silver)"],
+    ["SILVER_MODELING_HISTORICAL_PATH", SILVER_MODELING_HISTORICAL_PATH, "Historical Modeling Data (silver)"],
+    ["SILVER_MODELING_UNSEEN_PATH", SILVER_MODELING_UNSEEN_PATH, "Unseen Modeling Data (silver)"],
     ["BRONZE_STATION_HISTORY_CHECKPOINTS", BRONZE_STATION_HISTORY_CHECKPOINTS, "Historical Station Checkpoints (bronze)"],
     ["BRONZE_WEATHER_HISTORY_CHECKPOINTS", BRONZE_WEATHER_HISTORY_CHECKPOINTS, "Historical Weather Checkpoints (bronze)"],
     ["SILVER_STATION_INFO_CHECKPOINTS", SILVER_STATION_INFO_CHECKPOINTS, "Station Info Checkpoints (silver)"],
@@ -60,6 +66,8 @@ rows = [
     ["SILVER_STATION_HISTORY_CHECKPOINTS", SILVER_STATION_HISTORY_CHECKPOINTS, "Historical Station Checkpoints (silver)"],
     ["SILVER_WEATHER_HISTORY_CHECKPOINTS", SILVER_WEATHER_HISTORY_CHECKPOINTS, "Historical Weather Checkpoints (silver)"],
     ["SILVER_HISTORICAL_CHECKPOINTS", SILVER_HISTORICAL_CHECKPOINTS, "Historical Checkpoints (silver)"],
+    ["SILVER_MODELING_HISTORICAL_CHECKPOINTS", SILVER_MODELING_HISTORICAL_CHECKPOINTS, "Historical Modeling Checkpoints (silver)"],
+    ["SILVER_MODELING_UNSEEN_CHECKPOINTS", SILVER_MODELING_UNSEEN_CHECKPOINTS, "Unseen Modeling Checkpoints (silver)"],
 ]
 
 # COMMAND ----------
