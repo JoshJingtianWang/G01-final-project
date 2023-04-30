@@ -1602,17 +1602,310 @@ plt.show()
 
 # COMMAND ----------
 
+# MAGIC %md ##Average temperature and average trip duration per day
+
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize=(30, 8)) 
+ax1 = sns.lineplot(x='date', y='avg_tempF', data=daily_trips, label='Temperature (F)')
+ax1.set_xticks(ax1.get_xticks()[::90]) 
+
+ax2 = ax1.twinx()
+sns.lineplot(x='date', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average temperature and average trip duration per day')
+plt.xlabel('Date')
+ax1.set_ylabel('Temperature (F)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average temperature and average trip duration per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8)) 
+ax1 = sns.lineplot(x='hour', y='avg_tempF', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45]) 
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average temperature and average trip duration per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Temperature (F)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average wind speed and average trip duration per day
+
+# COMMAND ----------
+
+plt.figure(figsize=(30, 8))
+ax1 = sns.lineplot(x='date', y='avg_wind_speed_mph', data=daily_trips, label='Avg. Wind Speed (mph)')
+ax1.set_xticks(ax1.get_xticks()[::90])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='date', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average wind speed and average trip duration per day')
+plt.xlabel('Date')
+ax1.set_ylabel('Average Wind Speed (mph)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average wind speed and average trip duration per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_wind_speed_mph', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average wind speed and average trip duration per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Average Wind Speed (mph)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average probability of precipitation and average trip duration per day
+
+# COMMAND ----------
+
+plt.figure(figsize=(30, 8))
+ax1 = sns.lineplot(x='date', y='avg_pop', data=daily_trips, label='Average Probability')
+ax1.set_xticks(ax1.get_xticks()[::90])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='date', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average probability of precipitation and average trip duration per day')
+plt.xlabel('Date')
+ax1.set_ylabel('Average Probability of Precipitation')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average probability of precipitation and average trip duration per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_pop', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average probability of precipitation and average trip duration per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Average probability of precipitation')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average humidity and average trip duration per day
+
+# COMMAND ----------
+
+plt.figure(figsize=(30, 8))
+ax1 = sns.lineplot(x='date', y='avg_humidity', data=daily_trips, label='Average Humidity')
+ax1.set_xticks(ax1.get_xticks()[::90])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='date', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average humidity and average trip duration per day')
+plt.xlabel('Date')
+ax1.set_ylabel('Average Humidity')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average humidity and average trip duration per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_humidity', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average humidity and average trip duration per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Average Humidity')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average snowfall and average trip duration per day
+
+# COMMAND ----------
+
+plt.figure(figsize=(30, 8))
+ax1 = sns.lineplot(x='date', y='avg_snow_1h', data=daily_trips, label='Average Snow (1h)')
+ax1.set_xticks(ax1.get_xticks()[::90])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='date', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average snowfall and average trip duration per day')
+plt.xlabel('Date')
+ax1.set_ylabel('Average Snow (1h)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average snowfall and average trip duration per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_snow_1h', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average snowfall and average trip duration per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Average Snow (1h)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average rainfall and average trip duration per day
+
+# COMMAND ----------
+
+plt.figure(figsize=(30, 8))
+ax1 = sns.lineplot(x='date', y='avg_rain_1h', data=daily_trips, label='Average Rain (1h)')
+ax1.set_xticks(ax1.get_xticks()[::90])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='date', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average rainfall and average trip duration per day')
+plt.xlabel('Date')
+ax1.set_ylabel('Average Rain (1h)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average rainfall and average trip duration per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_rain_1h', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45])
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips, ax=ax2, color='r', label='Avg. Trip Duration')
+
+plt.title('Average rainfall and average trip duration per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Average Rain (1h)')
+ax2.set_ylabel('Average Trip Duration (min)')
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+plt.show()
+
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC Note: The date timeseries starts in November 2021 and ends in March 2023.
 # MAGIC
 # MAGIC When looking at weather patterns, we first decided to examine the relationship between temperature (F) and the number of trips. Generally, they follow the same pattern except for the start period. When we look at the hour, the number of trips falls significantly in the morning while the temperature stays around 52 degrees Fahrenheit. During the afternoon and evening, both start to rise. For wind speed, it generally follows the same pattern. This is the same per hour, where they both fall in the morning and rise in the evening. Honestly, this is a bit weird because you would think that more wind would lead to fewer bike rides. However, according to the correlation matrix, they are not that correlated. Probability of Precipitation and Number of Rides do not seem to match at all. Humidity and the Number of Bike Rides seem like polar opposites. Both snowfall and rainfall seem to have a significant effect on the number of bikes rented. It's difficult to see, but whenever there is rain or snow, the number of bikes rented seems to decrease.
+# MAGIC
+# MAGIC When looking at the duration with all of these different weather factors, there are interesting results. First, when there is a peak in average duration, the average temperature for the most part seems to go down. Next,  when looking at the wind speed, we can see that when there are peaks of wind speed, the average duration seems to go up. When looking at the average pop, there isn't much similarity, and it's hard to find a conclusion. Perhaps, looking at it by a monthly lense may help, but generally it seems random. Humidity and Duration seem to line up together. When there are peaks in duration, the humidity seems to go up for the most part. Both snowfall and rainfall seem to match duration. When there is less rainfall and snowfall, the duration is lower.
 
 # COMMAND ----------
 
-from pyspark.sql.functions import count, mean
 
-grouped_by_main = (station_trips
-                   .groupBy('main', 'description')
+daily_trips_main = (station_trips
+                   .groupBy(hour('started_at').alias('hour'), 'main')
                    .agg(count('ride_id').alias('num_trips'),
                         mean('tempF').alias('avg_tempF'),
                         mean('wind_speed_mph').alias('avg_wind_speed_mph'),
@@ -1620,13 +1913,485 @@ grouped_by_main = (station_trips
                         mean('humidity').alias('avg_humidity'),
                         mean('snow_1h').alias('avg_snow_1h'),
                         mean('rain_1h').alias('avg_rain_1h'),
-                        mean('trip_duration').alias('avg_trip_duration')))
+                        mean('trip_duration').alias('avg_trip_duration'))
+                    .toPandas())
 
-display(grouped_by_main)
+# COMMAND ----------
+
+# MAGIC %md Here we can take a look at the different types of weather patterns that happen. 
+
+# COMMAND ----------
+
+# MAGIC %md ##Number of Trips Per Hour by Weather Type By Hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8)) 
+ax1 = sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, hue='main')
+ax1.set_xticks(ax1.get_xticks()[::45]) 
+
+plt.title('Number of Trips Per Hour by Weather Type By Hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Number of Bikes')
+ax.legend(labels=['Num Bikes'], loc='upper left')
+plt.show()
+
 
 
 
 
 # COMMAND ----------
 
-# MAGIC %md Here we can take a look at the different types of weather patterns that happen. 
+# MAGIC %md ##Average Temperature by Weather Type
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_tempF', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Temperature (F)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Number of trips')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+
+plt.title('Average Temperature by Weather Type and Number of Trips by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Wind Speed by Weather Type and Number of Trips by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_wind_speed_mph', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Wind Speed (mph)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Number of trips')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+
+plt.title('Average Wind Speed by Weather Type and Number of Trips by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Probability of Precipitation by Weather Type and Number of Trips by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_pop', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Probability of Precipitation')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Number of trips')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+
+plt.title('Probability of Precipitation by Weather Type and Number of Trips by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Humidity by Weather Type and Number of Trips by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+'Clear': 'yellow',
+'Clouds': 'gray',
+'Smoke': 'lightgray',
+'Rain': 'blue',
+'Snow': 'black',
+'Mist': 'lightblue',
+'Haze': 'brown',
+'Thunderstorm': 'darkgray',
+'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_humidity', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Humidity')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Number of trips')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+
+plt.title('Average Humidity by Weather Type and Number of Trips by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Snowfall by Weather Type and Number of Trips by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_snow_1h', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Snowfall (mm)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Number of trips')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+
+plt.title('Average Snowfall by Weather Type and Number of Trips by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Rainfall by Weather Type and Number of Trips by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_rain_1h', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Rainfall (mm)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Number of trips')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+
+plt.title('Average Rainfall by Weather Type and Number of Trips by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Trip Duration by Weather Type by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Trip Duration (minutes)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+plt.title('Average Trip Duration by Weather Type by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Temperature by Weather Type and Duration by Houre
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_tempF', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Temperature (F)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Average Duration (min)')
+ax2.legend(labels=['Avg Duration'], loc='upper right')
+
+plt.title('Average Temperature by Weather Type and Duration by Houre')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Wind Speed by Weather Type and Duration by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_wind_speed_mph', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Wind Speed (mph)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Average Trip Duration (minutes)')
+ax2.legend(labels=['Avg Duration'], loc='upper right')
+
+plt.title('Average Wind Speed by Weather Type and Duration by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Probability of Precipitation by Weather Type and Duration by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_pop', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Probability of Precipitation')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Average trip duration (minutes)')
+ax2.legend(labels=['Avg. trip duration'], loc='upper right')
+
+plt.title('Probability of Precipitation by Weather Type and Duration by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Humidity by Weather Type and Duration by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_humidity', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Humidity')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Average Duration')
+ax2.legend(labels=['Avg Duration'], loc='upper right')
+
+plt.title('Average Humidity by Weather Type and Duration by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Snowfall by Weather Type and Duration by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_snow_1h', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Snowfall (mm)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+avg_duration_ax = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, ax=avg_duration_ax, color='purple')
+avg_duration_ax.set_ylabel('Average Trip Duration (s)')
+avg_duration_ax.legend(labels=['Avg Duration'], loc='upper right')
+
+plt.title('Average Snowfall by Weather Type and Duration by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average Rainfall by Weather Type and Duration by Hour
+
+# COMMAND ----------
+
+weather_colors = {
+    'Clear': 'yellow',
+    'Clouds': 'gray',
+    'Smoke': 'lightgray',
+    'Rain': 'blue',
+    'Snow': 'black',
+    'Mist': 'lightblue',
+    'Haze': 'brown',
+    'Thunderstorm': 'darkgray',
+    'Drizzle': 'green'
+}
+
+plt.figure(figsize=(15, 8))
+ax1 = sns.lineplot(x='hour', y='avg_rain_1h', data=daily_trips_main, hue='main', palette=weather_colors)
+ax1.set_xticks(ax1.get_xticks()[::45])
+ax1.set_ylabel('Average Rainfall (mm)')
+ax1.legend(labels=list(weather_colors.keys()), loc='upper left')
+
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='avg_trip_duration', data=daily_trips_main, ax=ax2, color='purple')
+ax2.set_ylabel('Average Duration')
+ax2.legend(labels=['Avg Duration'], loc='upper right')
+
+plt.title('Average Rainfall by Weather Type and Duration by Hour')
+plt.xlabel('Hour')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
+# MAGIC We are now going to look at how the count of trips and average duration changes through the frame of these metrics and the different weather conditions. It should be important to note that these graphs may be very messy and hard to get conclusions. Any graphs I don't talk about, I find not very useful. Lastly, decided only to look at it by hour, just to see any hourly trends for weather since weather is obviously subject to seasonal trends so date may not be the best.
+# MAGIC
+# MAGIC First, when the weather is clear or cloudy, there is more trips happening. The wind speed seems to fluctuate a lot during snow, and we don't seem to have any bike trips happening. When there is a high probability of percipitation, and either snow or rain could happen, bike trips seem to be low.  For the most part, humidity seems to have a small effect on number of trips; specifically, thunderstorms, rain, and snow later in the day go down, and the number of trips go up. Both rain and snow early in the day seem to have a huge effect on number of trips.
+# MAGIC
+# MAGIC Rain, Snow, and Mist seem to have the most variability when looking at duration. Most "hazardous" have higher trip durations. When there is less probability of precipitation, there is higher durations. When there is less snow and rain, the duration is higher, which makes sense.
+
+# COMMAND ----------
+
+
