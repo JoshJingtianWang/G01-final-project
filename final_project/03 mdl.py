@@ -1,8 +1,4 @@
 # Databricks notebook source
-#test
-
-# COMMAND ----------
-
 # MAGIC %run ./includes/includes
 
 # COMMAND ----------
