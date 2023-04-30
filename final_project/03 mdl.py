@@ -1,10 +1,9 @@
 # Databricks notebook source
-# MAGIC %md
-# MAGIC test
+# MAGIC %run ./includes/includes
 
 # COMMAND ----------
 
-# MAGIC %run ./includes/includes
+# MAGIC %run ./includes/globals
 
 # COMMAND ----------
 
@@ -15,11 +14,6 @@ promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower(
 
 print(start_date,end_date,hours_to_forecast, promote_model)
 print("YOUR CODE HERE...")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC # Currently using synthetic data only
 
 # COMMAND ----------
 
@@ -48,56 +42,50 @@ import plotly.express as px
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Generate synthetic data
+# MAGIC # Archive and delete all previous models
 
 # COMMAND ----------
 
-def generate_bike_changes(start_date, num_days, num_intervals):
-    data = []
-    curr_date = start_date
+# # Get the client object for the MLflow tracking server
+# client = mlflow.tracking.MlflowClient()
 
-    # Define holidays (e.g., New Year's Day, Christmas Day)
-    holidays = [datetime(start_date.year, 1, 1), datetime(start_date.year, 12, 25)]
+# # List all registered models
+# registered_models = client.list_registered_models()
 
-    for day in range(num_days):
-        for interval in range(num_intervals):
-            # Add a sine wave component to the bike change values
-            cycle_length = 24
-            amplitude = 10
-            net_bike_change = amplitude * np.sin(2 * np.pi * interval / cycle_length)
-            net_bike_change += random.uniform(-3, 3)  # Add some random noise
+# model_name = 'G01_model'
 
-            # # Add holiday column
-            # is_holiday = 1 if curr_date.date() in [holiday.date() for holiday in holidays] else 0
+# # Get all model versions for the current registered model
+# model_versions = client.search_model_versions(f"name='{model_name}'")
 
-            # Add weather data (temperature and precipitation)
-            temperature = random.uniform(0, 100)  # Random temperature between 0 and 100 degrees Fahrenheit
-            precipitation = random.uniform(0, 1)  # Random precipitation between 0 and 1 inches
+# # Loop through all model versions and set their stage to "Archived"
+# for version in model_versions:
+#     version_number = version.version
+#     version_stage = version.current_stage
+    
+#     if version_stage != "Archived":
+#         print(f"Archiving model {model_name}, version {version_number}")
+#         client.transition_model_version_stage(
+#             name=model_name,
+#             version=version_number,
+#             stage="Archived"
+#         )
 
-            data.append((curr_date, net_bike_change, temperature, precipitation))
-            curr_date += timedelta(hours=1)
+# client.delete_registered_model(model_name)
+# print("Specified registered models have been deleted.")
 
-    return data
+# COMMAND ----------
 
-# Generate synthetic data
-start_date = datetime(2020, 1, 1)
-num_days = 365
-num_intervals = 24  # Hourly intervals
+# MAGIC %md
+# MAGIC # Load silver modeling table
 
-random.seed(42)
-data = generate_bike_changes(start_date, num_days, num_intervals)
+# COMMAND ----------
 
-# Create a Pandas dataframe
-data_df = pd.DataFrame(data, columns=["ds", "y", "temperature", "precipitation"])
+delta_df = spark.read.format("delta").load(SILVER_MODELING_HISTORICAL_PATH)
+data_df = delta_df.toPandas()
+
+# COMMAND ----------
 
 data_df.head()
-
-# COMMAND ----------
-
-x = data_df.ds[:100]
-y = data_df.y[:100]
-plt.plot(x, y)
-plt.show()
 
 # COMMAND ----------
 
@@ -114,6 +102,72 @@ test_df = data_df.iloc[split_index:]
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC # Generate synthetic data
+
+# COMMAND ----------
+
+# def generate_bike_changes(start_date, num_days, num_intervals):
+#     data = []
+#     curr_date = start_date
+
+#     # Define holidays (e.g., New Year's Day, Christmas Day)
+#     holidays = [datetime(start_date.year, 1, 1), datetime(start_date.year, 12, 25)]
+
+#     for day in range(num_days):
+#         for interval in range(num_intervals):
+#             # Add a sine wave component to the bike change values
+#             cycle_length = 24
+#             amplitude = 10
+#             net_bike_change = amplitude * np.sin(2 * np.pi * interval / cycle_length)
+#             net_bike_change += random.uniform(-3, 3)  # Add some random noise
+
+#             # # Add holiday column
+#             # is_holiday = 1 if curr_date.date() in [holiday.date() for holiday in holidays] else 0
+
+#             # Add weather data (temperature and precipitation)
+#             temperature = random.uniform(0, 100)  # Random temperature between 0 and 100 degrees Fahrenheit
+#             precipitation = random.uniform(0, 1)  # Random precipitation between 0 and 1 inches
+
+#             data.append((curr_date, net_bike_change, temperature, precipitation))
+#             curr_date += timedelta(hours=1)
+
+#     return data
+
+# # Generate synthetic data
+# start_date = datetime(2020, 1, 1)
+# num_days = 365
+# num_intervals = 24  # Hourly intervals
+
+# random.seed(42)
+# data = generate_bike_changes(start_date, num_days, num_intervals)
+
+# # Create a Pandas dataframe
+# data_df = pd.DataFrame(data, columns=["ds", "y", "temperature", "precipitation"])
+
+# data_df.head()
+
+# COMMAND ----------
+
+# x = data_df.ds[:100]
+# y = data_df.y[:100]
+# plt.plot(x, y)
+# plt.show()
+
+# COMMAND ----------
+
+# # split data into train/test
+# train_ratio = 0.8
+
+# # Calculate the split index
+# split_index = int(len(data_df) * train_ratio)
+
+# # Split the data into train and test sets
+# train_df = data_df.iloc[:split_index]
+# test_df = data_df.iloc[split_index:]
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC # models
 
 # COMMAND ----------
@@ -121,7 +175,6 @@ test_df = data_df.iloc[split_index:]
 ## Helper routine to extract the parameters that were used to train a specific instance of the model
 def extract_params(pr_model):
     return {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
-
 
 # COMMAND ----------
 
@@ -132,11 +185,13 @@ def extract_params(pr_model):
 
 GROUP_NAME = 'G01'
 ARTIFACT_PATH = f"{GROUP_NAME}_model"
+params = {} #empty param dict for base model
 # Start an MLflow run
 with mlflow.start_run():
-    base_model = Prophet() 
+    base_model = Prophet(**params) 
     base_model.add_country_holidays(country_name='US')
     base_model.add_regressor('temperature')
+    base_model.add_regressor('feels_like')
     base_model.add_regressor('precipitation')
     base_model.fit(train_df)
 
@@ -157,7 +212,7 @@ with mlflow.start_run():
 
     # Log the best hyperparameters and the RMSE metric in MLflow
     mlflow.prophet.log_model(base_model, artifact_path=ARTIFACT_PATH)
-    mlflow.log_params(params)
+    #mlflow.log_params(params)
     mlflow.log_metric("rmse", rmse)
     model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
     print(f"Model artifact logged to: {model_uri}")
@@ -239,6 +294,7 @@ def gridsearch_run(param_grid, data):
         #holidays = pd.DataFrame({"ds": [], "holiday": []})
         model.add_country_holidays(country_name='US')
         model.add_regressor('temperature')
+        model.add_regressor('feels_like')
         model.add_regressor('precipitation')
         model.fit(data)
         
@@ -265,12 +321,20 @@ def gridsearch_run(param_grid, data):
 
 #param grid for gridsearch
 param_grid_for_gridsearch = {  
-    'changepoint_prior_scale': [0.01, 0.1],
-    'seasonality_prior_scale': [0.1, 1.0],
-    'holidays_prior_scale': [0.1, 1.0],
+    'changepoint_prior_scale': [0.01, 0.1, 0.5],
+    'seasonality_prior_scale': [0.01, 0.1, 1.0],
+    'holidays_prior_scale': [0.01, 0.1, 1.0],
+    'changepoint_range': [0.8, 0.9, 1.0],
+    # 'daily_seasonality': [True, False],
+    # 'weekly_seasonality': [True, False],
+    # 'yearly_seasonality': [True, False],
     # 'growth': ['linear', 'flat'],
     # 'seasonality_mode': ['additive', 'multiplicative']
 }
+
+# COMMAND ----------
+
+3*3*3*3
 
 # COMMAND ----------
 
@@ -302,6 +366,7 @@ with mlflow.start_run():
     best_model = Prophet(**best_params) 
     best_model.add_country_holidays(country_name='US')
     best_model.add_regressor('temperature')
+    best_model.add_regressor('feels_like')
     best_model.add_regressor('precipitation')
     best_model.fit(train_df)
 
