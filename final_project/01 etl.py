@@ -34,9 +34,27 @@ from datetime import datetime
 
 import holidays
 import pyspark.sql.functions as F
-from pyspark.sql.functions import col, expr, from_unixtime
-from pyspark.sql.functions import hour, minute, second, to_date, to_timestamp
+from pyspark.sql.functions import col, expr
+from pyspark.sql.functions import from_unixtime, to_date, to_timestamp
+from pyspark.sql.functions import hour, minute, month, second
 from pyspark.sql.types import *
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Preliminary notes
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
+# MAGIC ## On optimization
+# MAGIC
+# MAGIC Feedback from the EDA, modeling, and application teams indicates that some of the tables used in this notebook are being used more than the rest. Because of this, we decided that blindly partitioning and apply z-ordering to the less frequently used tables would provide little to no benefit.
+# MAGIC
+# MAGIC Thus, only a couple of the tables are being explicitly partitioned and z-ordered based on feedback from other group members and by inspecting the other notebooks for the most frequently queried columns.
+# MAGIC
+# MAGIC To make up for this lack of explicit partitioning and z-ordering, *every* table that is written in this notebook has been optimized using the `OPTIMIZE` command.
 
 # COMMAND ----------
 
@@ -127,7 +145,7 @@ bronze_station_status_df = (
     .read
     .format("delta")
     .load(BRONZE_STATION_STATUS_PATH)
-
+)
 
 # COMMAND ----------
 
@@ -169,7 +187,7 @@ bronze_nyc_weather_df = (
     .read
     .format("delta")
     .load(BRONZE_NYC_WEATHER_PATH)
-
+)
 
 # COMMAND ----------
 
@@ -222,7 +240,7 @@ bronze_station_history_df = (
     .option("mergeSchema", "true")
     .option("cloudFiles.schemaLocation", BRONZE_STATION_HISTORY_CHECKPOINTS)
     .load(BIKE_TRIP_DATA_PATH)
-
+)
 
 # COMMAND ----------
 
@@ -245,7 +263,7 @@ bronze_station_history_query = (
 
 # COMMAND ----------
 
-spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`")
+display(spark.sql(f"OPTIMIZE delta.`{BRONZE_STATION_HISTORY_PATH}`"))
 
 # COMMAND ----------
 
@@ -328,7 +346,7 @@ bronze_weather_history_query = (
 
 # COMMAND ----------
 
-spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`")
+display(spark.sql(f"OPTIMIZE delta.`{BRONZE_WEATHER_HISTORY_PATH}`"))
 
 # COMMAND ----------
 
@@ -405,7 +423,7 @@ silver_station_info_query = (
 
 # COMMAND ----------
 
-spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`")
+display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_INFO_PATH}`"))
 
 # COMMAND ----------
 
@@ -482,7 +500,7 @@ silver_station_status_query = (
 
 # COMMAND ----------
 
-spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`")
+display(spark.sql(f"OPTIMIZE delta.`{SILVER_STATION_STATUS_PATH}`"))
 
 # COMMAND ----------
 
@@ -579,7 +597,7 @@ silver_nyc_weather_query = (
 
 # COMMAND ----------
 
-spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`")
+display(spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`"))
 
 # COMMAND ----------
 
@@ -589,41 +607,18 @@ spark.sql(f"OPTIMIZE delta.`{SILVER_NYC_WEATHER_PATH}`")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC
-# MAGIC The following is the schema for the historical station silver table:
-# MAGIC - `ride_id`: string (nullable = true)
-# MAGIC - `rideable_type`: string (nullable = true)
-# MAGIC - `started_at`: timestamp (nullable = true)
-# MAGIC - `ended_at`: timestamp (nullable = true)
-# MAGIC - `start_station_name`: string (nullable = true)
-# MAGIC - `start_station_id`: string (nullable = true)
-# MAGIC - `end_station_name`: string (nullable = true)
-# MAGIC - `end_station_id`: string (nullable = true)
-# MAGIC - `start_lat`: string (nullable = true)
-# MAGIC - `start_lng`: string (nullable = true)
-# MAGIC - `end_lat`: string (nullable = true)
-# MAGIC - `end_lng`: string (nullable = true)
-# MAGIC - `member_casual`: string (nullable = true)
-# MAGIC - `station._rescued_data`: string (nullable = true)
-# MAGIC - `started_at_date`: date (nullable = true)
-# MAGIC - `started_at_hour`: integer (nullable = true)
-# MAGIC - `started_at_minute`: integer (nullable = true)
-# MAGIC - `started_at_second`: integer (nullable = true)
-# MAGIC - `ended_at_date`: date (nullable = true)
-# MAGIC - `ended_at_hour`: integer (nullable = true)
-# MAGIC - `ended_at_minute`: integer (nullable = true)
-# MAGIC - `ended_at_second`: integer (nullable = true)
-# MAGIC - `is_holiday`: boolean (nullable = true)
-# MAGIC
-# MAGIC The path to the table is stored in the following global variable: `SILVER_STATION_HISTORY_PATH`.
-# MAGIC
-# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_STATION_HISTORY_CHECKPOINTS`.
+# MAGIC The following creates a silver table for the historical station data. This silver table will not be written anywhere--instead, it will be joined with the historical waether data to create a comprehensive historical silver table.
 
 # COMMAND ----------
 
 # Get list of all US holidays in the last 10 years
 current_year = datetime.now().year
 us_holidays = holidays.US(years=range(current_year-10, current_year+1))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC It is important to note that, by request of the EDA team, the following table was *not* filtered to only include data relevant to our group's station, although that was originally the plan.
 
 # COMMAND ----------
 
@@ -643,8 +638,6 @@ silver_station_history_df = (
     .withColumn("ended_at_second", second(col("ended_at")))
     # Determine whether "started_at_date" is a holiday
     .withColumn("is_holiday", col("started_at_date").isin(list(us_holidays)))
-    # # Filter to only show our group's station
-    # .filter(col("start_station_name") == GROUP_STATION_ASSIGNMENT)
     # Rename the data evolution "_rescued_data" column
     .withColumnRenamed("_rescued_data", "station._rescued_data")
     # Add a watermark
@@ -659,46 +652,7 @@ silver_station_history_df = (
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC
-# MAGIC The following is the schema for the historical weather silver table:
-# MAGIC - `dt`: timestamp (nullable = true)
-# MAGIC - `tempK`: string (nullable = true)
-# MAGIC - `feels_likeK`: string (nullable = true)
-# MAGIC - `pressure`: string (nullable = true)
-# MAGIC - `humidity`: string (nullable = true)
-# MAGIC - `dew_point`: string (nullable = true)
-# MAGIC - `uvi`: string (nullable = true)
-# MAGIC - `clouds`: string (nullable = true)
-# MAGIC - `visibility`: string (nullable = true)
-# MAGIC - `wind_speed_mps`: string (nullable = true)
-# MAGIC - `wind_deg`: string (nullable = true)
-# MAGIC - `pop`: string (nullable = true)
-# MAGIC - `snow_1h`: string (nullable = true)
-# MAGIC - `id`: string (nullable = true)
-# MAGIC - `main`: string (nullable = true)
-# MAGIC - `description`: string (nullable = true)
-# MAGIC - `icon`: string (nullable = true)
-# MAGIC - `loc`: string (nullable = true)
-# MAGIC - `lat`: string (nullable = true)
-# MAGIC - `lon`: string (nullable = true)
-# MAGIC - `timezone`: string (nullable = true)
-# MAGIC - `timezone_offset`: string (nullable = true)
-# MAGIC - `rain_1h`: string (nullable = true)
-# MAGIC - `weather._rescued_data`: string (nullable = true)
-# MAGIC - `tempC`: double (nullable = true)
-# MAGIC - `tempF`: double (nullable = true)
-# MAGIC - `feels_likeC`: double (nullable = true)
-# MAGIC - `feels_likeF`: double (nullable = true)
-# MAGIC - `wind_speed_mph`: double (nullable = true)
-# MAGIC - `dt_date`: date (nullable = true)
-# MAGIC - `dt_hour`: integer (nullable = true)
-# MAGIC - `dt_minute`: integer (nullable = true)
-# MAGIC - `dt_second`: integer (nullable = true)
-# MAGIC
-# MAGIC
-# MAGIC The path to the table is stored in the following global variable: `SILVER_WEATHER_HISTORY_PATH`.
-# MAGIC
-# MAGIC The directory its checkpoints are saved at is stored in the following global variable: `SILVER_WEATHER_HISTORY_CHECKPOINTS`.
+# MAGIC The following creates a silver table for the historical weather data. This silver table will not be written anywhere--instead, it will be joined with the historical station data to create a comprehensive historical silver table.
 
 # COMMAND ----------
 
@@ -718,6 +672,7 @@ silver_weather_history_df = (
     # Convert "dt" from unix time to a timestamp and extract components
     .withColumn("dt", from_unixtime("dt").cast("timestamp"))
     .withColumn("dt_date", to_date(col("dt")))
+    .withColumn("dt_month", month(col("dt_date")))
     .withColumn("dt_hour", hour(col("dt")))
     .withColumn("dt_minute", minute(col("dt")))
     .withColumn("dt_second", second(col("dt")))
@@ -790,6 +745,7 @@ silver_weather_history_df = (
 # MAGIC - `feels_likeF`: double (nullable = true)
 # MAGIC - `wind_speed_mph`: double (nullable = true)
 # MAGIC - `dt_date`: date (nullable = true)
+# MAGIC - `dt_month`: integer (nullable = true)
 # MAGIC - `dt_hour`: integer (nullable = true)
 # MAGIC - `dt_minute`: integer (nullable = true)
 # MAGIC - `dt_second`: integer (nullable = true)
@@ -818,6 +774,7 @@ silver_historical_query = (
     .format("delta")
     .outputMode("append")
     .trigger(once=True)
+    .partitionBy("dt_month")
     .option("mergeSchema", "true")
     .option("checkpointLocation", SILVER_HISTORICAL_CHECKPOINTS)
     .start(SILVER_HISTORICAL_PATH)
@@ -825,7 +782,12 @@ silver_historical_query = (
 
 # COMMAND ----------
 
-spark.sql(f"OPTIMIZE delta.`{SILVER_HISTORICAL_PATH}`")
+# MAGIC %md
+# MAGIC Note that we chose to partition by month here because it was one of the most frequently queried columns in the EDA notebook aside from `hour`, which would not have made sense to partition by due to its nature.
+
+# COMMAND ----------
+
+display(spark.sql(f"OPTIMIZE delta.`{SILVER_HISTORICAL_PATH}`"))
 
 # COMMAND ----------
 
@@ -835,7 +797,7 @@ spark.sql(f"OPTIMIZE delta.`{SILVER_HISTORICAL_PATH}`")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC After the creation of the above tables, which were mostly based on the needs of the EDA team, the modeling team requested certain transformations on the tables. We decided internally that it would be best to just create new tables instead of disrupting the EDA notebook, at least in the short term due to time constraints.
+# MAGIC After the creation of the above tables, which were mostly based on the needs of the EDA team, the modeling team requested certain transformations on the tables. We decided internally that it would be best to just create new tables instead of disrupting the EDA notebook and flow, at least in the short term (due to time constraints).
 # MAGIC
 # MAGIC Ideally, these tables would be condensed somehow, and this inefficiency will be discussed further when we critique our project.
 
@@ -939,7 +901,10 @@ silver_historical_modeling_df = (
     # Outer join the previous two dataframes
     model_started_df.join(
         model_ended_df,
-        (model_started_df["started_at_date"] == model_ended_df["ended_at_date"]) & (model_started_df["started_at_hour"] == model_ended_df["ended_at_hour"]),
+        (
+            model_started_df["started_at_date"] == model_ended_df["ended_at_date"])
+            & (model_started_df["started_at_hour"] == model_ended_df["ended_at_hour"]
+        ),
         how="outer"
     )
     # Coalesce the date and hour columns
@@ -988,6 +953,10 @@ silver_historical_modeling_query = (
     .option("checkpointLocation", SILVER_MODELING_HISTORICAL_CHECKPOINTS)
     .save(SILVER_MODELING_HISTORICAL_PATH)
 )
+
+# COMMAND ----------
+
+display(spark.sql(f"OPTIMIZE delta.`{SILVER_MODELING_HISTORICAL_PATH}`"))
 
 # COMMAND ----------
 
