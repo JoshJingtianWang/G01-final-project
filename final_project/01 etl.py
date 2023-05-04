@@ -25,7 +25,10 @@
 
 # MAGIC %md
 # MAGIC # Initial setup
-# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC First, we will import necessary modules, change configuration settings, and define useful constants.
 
 # COMMAND ----------
@@ -50,11 +53,13 @@ from pyspark.sql.types import *
 # MAGIC
 # MAGIC ## On optimization
 # MAGIC
-# MAGIC Feedback from the EDA, modeling, and application teams indicates that some of the tables used in this notebook are being used more than the rest. Because of this, we decided that blindly partitioning and apply z-ordering to the less frequently used tables would provide little to no benefit.
+# MAGIC We heavily considered partitioning and z-ordering each table, however, in most cases, it did not seem reasonable in the scope of our particular project to do so.
 # MAGIC
-# MAGIC Thus, only a couple of the tables are being explicitly partitioned and z-ordered based on feedback from other group members and by inspecting the other notebooks for the most frequently queried columns.
+# MAGIC The only table where a partitioning choice was absolutely clear was for the silver historical table, where we partitioned by the ID of the starting station. This was possible because, due to a request by the EDA team, this table was left unfiltered, and thus retained data from all stations.
 # MAGIC
-# MAGIC To make up for this lack of explicit partitioning and z-ordering, *every* table that is written in this notebook has been optimized using the `OPTIMIZE` command.
+# MAGIC No other tables were partitioned or z-ordered because there were no columns that were obviously being queried more frequently than others, so we decided that blindly partitioning or applying data skipping to these tables would provide little to no benefit.
+# MAGIC
+# MAGIC To make up for this lack of explicit partitioning and z-ordering, *every* table in this notebook has been optimized using the `OPTIMIZE` command.
 
 # COMMAND ----------
 
@@ -322,8 +327,6 @@ bronze_weather_history_df = (
     .option("cloudFiles.schemaLocation", BRONZE_WEATHER_HISTORY_CHECKPOINTS)
     .load(NYC_WEATHER_FILE_PATH)
 )
-
-bronze_station_history_df
 
 # COMMAND ----------
 
@@ -762,7 +765,7 @@ silver_historical_df = silver_station_history_df.join(
     expr("""
         started_at_date = dt_date AND started_at_hour = dt_hour AND started_at_minute BETWEEN 0 and 59
     """),
-    # Perform a left join so that all station rows are kept
+    # Perform a left join to ensure all station rows are kept
     how="left",
 )
 
@@ -774,7 +777,7 @@ silver_historical_query = (
     .format("delta")
     .outputMode("append")
     .trigger(once=True)
-    .partitionBy("dt_month")
+    .partitionBy("start_station_id")
     .option("mergeSchema", "true")
     .option("checkpointLocation", SILVER_HISTORICAL_CHECKPOINTS)
     .start(SILVER_HISTORICAL_PATH)
@@ -783,7 +786,7 @@ silver_historical_query = (
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Note that we chose to partition by month here because it was one of the most frequently queried columns in the EDA notebook aside from `hour`, which would not have made sense to partition by due to its nature.
+# MAGIC Note that we chose to partition by start station ID here because most analysis would only require us to analyze the singular station assigned to our group.
 
 # COMMAND ----------
 
