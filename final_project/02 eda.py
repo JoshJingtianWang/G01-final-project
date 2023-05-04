@@ -39,6 +39,319 @@ display(station_trips)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC
+# MAGIC ## Summary
+# MAGIC
+# MAGIC Here's just the important graphs
+
+# COMMAND ----------
+
+station_trips = station_trips.withColumn("season", when((month(col("started_at")) >= 3) & (month(col("started_at")) <= 5), "Spring")
+                                              .when((month(col("started_at")) >= 6) & (month(col("started_at")) <= 8), "Summer")
+                                              .when((month(col("started_at")) >= 9) & (month(col("started_at")) <= 11), "Fall")
+                                              .otherwise("Winter"))
+
+
+# COMMAND ----------
+
+station_trips = station_trips.withColumn("start_time", unix_timestamp(col("started_at"), "yyyy-MM-dd HH:mm:ss"))
+station_trips = station_trips.withColumn("end_time", unix_timestamp(col("ended_at"), "yyyy-MM-dd HH:mm:ss"))
+station_trips = station_trips.withColumn("trip_duration", (col("end_time") - col("start_time"))/60)
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Monthly Averages
+
+# COMMAND ----------
+
+monthly_rentals_trip = station_trips.groupBy(month("started_at").alias("month")).agg(count("*").alias("trip_count")).orderBy("month").toPandas()
+monthly_rentals_duration = (
+    station_trips
+    .groupBy(month("started_at").alias("month"))
+    .agg(avg("trip_duration").alias("avg_duration"))
+    .orderBy("month")
+    .toPandas()
+)
+
+monthly_rentals_temp = (
+    station_trips
+    .groupBy(month("started_at").alias("month"))
+    .agg(avg("tempF").alias("avg_tempF"))
+    .orderBy("month")
+    .toPandas()
+)
+
+max_temp = monthly_rentals_temp["avg_tempF"].max()
+max_duration = monthly_rentals_duration["avg_duration"].max()
+max_count = monthly_rentals_trip["trip_count"].max()
+
+monthly_rentals_temp["norm_temp"] = monthly_rentals_temp["avg_tempF"] / max_temp * 0.7
+monthly_rentals_duration["norm_duration"] = monthly_rentals_duration["avg_duration"] / max_duration * 0.7
+monthly_rentals_trip["norm_count"] = monthly_rentals_trip["trip_count"] / max_count * 1.0
+
+sns.lineplot(data=monthly_rentals_temp, x="month", y="norm_temp", label="Temperature")
+sns.lineplot(data=monthly_rentals_duration, x="month", y="norm_duration", label="Duration")
+sns.lineplot(data=monthly_rentals_trip, x="month", y="norm_count", label="Trip Count")
+plt.legend(loc="center left", bbox_to_anchor=(1.05, 0.5))
+plt.title("Monthly Averages")
+plt.xlabel("Month")
+plt.ylabel("Value (Normalized)")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md Here we are plotting temperature, duration, and trip count. We can see that in the summer time, the trip count peaks.
+
+# COMMAND ----------
+
+daily_trips = (
+    station_trips
+    .groupBy(date_format("started_at", "yyyy-MM-dd").alias("date"), hour("started_at").alias("hour"), dayofweek("started_at").alias("day_of_week"), "member_casual")
+    .agg(count("*").alias("trip_count"), avg("trip_duration").alias("avg_duration"))
+    .withColumn("day_type", when(col("day_of_week").isin([1,7]), "weekend").otherwise("weekday"))
+    .orderBy("date")
+)
+
+# COMMAND ----------
+
+# MAGIC %md ##Trip Count by Hour
+
+# COMMAND ----------
+
+sns.barplot(data=daily_trips.toPandas(), x="hour", y="trip_count")
+plt.title("Trip Count by Hour")
+plt.xlabel("Hour")
+plt.ylabel("Trip Count")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md We can look at the count by hour overall, and we can learn the overall trend is towards the evenings overall.
+
+# COMMAND ----------
+
+# MAGIC %md ##Trip Count by Hour - Weekend vs. Weekday
+
+# COMMAND ----------
+
+sns.barplot(data=daily_trips.toPandas(), x="hour", y="trip_count", hue="day_type")
+plt.title("Trip Count by Hour - Weekend vs. Weekday")
+plt.xlabel("Hour")
+plt.ylabel("Trip Count")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md We can then look at the same graph by weekend or weekday, and notice that weekdays have overall more trips, overall and around the afternoons and evenings.
+
+# COMMAND ----------
+
+# MAGIC %md ##Trip Count by Day of Week
+
+# COMMAND ----------
+
+sns.barplot(data=daily_trips.toPandas(), x="day_of_week", y="trip_count")
+plt.title("Trip Count by Day of Week")
+plt.xlabel("Day of Week")
+plt.ylabel("Trip Count")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md We can see that the weekdays overall have more trip counts.
+
+# COMMAND ----------
+
+daily_trips1 = (station_trips
+               .groupBy(date_format('started_at', 'yyyy-MM-dd').alias('date'),
+                        hour('started_at').alias('hour'), dayofweek("started_at").alias("day_of_week"),
+                        'main', 'description')
+               .agg({'ride_id': 'count',
+                     'tempF': 'mean',
+                     'wind_speed_mph': 'mean',
+                     'pop': 'mean',
+                     'humidity': 'mean',
+                     'snow_1h': 'mean',
+                     'rain_1h': 'mean',
+                     'trip_duration': 'mean'})
+               .withColumnRenamed('count(ride_id)', 'num_trips')
+               .withColumnRenamed('avg(tempF)', 'avg_tempF')
+               .withColumnRenamed('avg(wind_speed_mph)', 'avg_wind_speed_mph')
+               .withColumnRenamed('avg(pop)', 'avg_pop')
+               .withColumnRenamed('avg(humidity)', 'avg_humidity')
+               .withColumnRenamed('avg(snow_1h)', 'avg_snow_1h')
+               .withColumnRenamed('avg(rain_1h)', 'avg_rain_1h')
+               .withColumnRenamed('avg(trip_duration)', 'avg_trip_duration')
+               .toPandas())
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average temperature and number of trips by day of week
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8)) 
+ax1 = sns.lineplot(x='day_of_week', y='avg_tempF', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45]) 
+
+ax2 = ax1.twinx()
+sns.lineplot(x='day_of_week', y='num_trips', data=daily_trips, ax=ax2, color='r')
+
+plt.title('Average temperature and number of trips by day of week')
+plt.xlabel('Hour')
+ax1.set_ylabel('Temperature (F)')
+ax2.set_ylabel('Number of trips')
+ax1.legend(labels=['Temperature (F)'], loc='upper left')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+plt.show()
+
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md ## Average temperature and number of trips per hour
+
+# COMMAND ----------
+
+plt.figure(figsize=(15, 8)) 
+ax1 = sns.lineplot(x='hour', y='avg_tempF', data=daily_trips)
+ax1.set_xticks(ax1.get_xticks()[::45]) 
+
+ax2 = ax1.twinx()
+sns.lineplot(x='hour', y='num_trips', data=daily_trips, ax=ax2, color='r')
+
+plt.title('Average temperature and number of trips per hour')
+plt.xlabel('Hour')
+ax1.set_ylabel('Temperature (F)')
+ax2.set_ylabel('Number of trips')
+ax1.legend(labels=['Temperature (F)'], loc='upper left')
+ax2.legend(labels=['Num Trips'], loc='upper right')
+plt.show()
+
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %md It doesn't feel like temperature has that much on the number of trips in the morning, but in the evening we can see that they seem to correlate with each other. But remember correlation does not imply causation, so further analysis would be needed to see why there's a change. 
+
+# COMMAND ----------
+
+# MAGIC %md ## Count of Trips by Is_Holiday
+
+# COMMAND ----------
+
+count_by_user_type = (
+    station_trips
+    .groupBy("is_holiday")
+    .agg(F.count("rideable_type").alias("trip_count"))
+    .orderBy("is_holiday")
+    .toPandas()
+)
+sns.barplot(x="is_holiday", y="trip_count", data=count_by_user_type)
+plt.title("Count of Trips by Is_Holiday")
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Total Trips by Hour by Holiday
+
+# COMMAND ----------
+
+is_holiday2 = (station_trips
+                    .groupBy('started_at_date', hour("started_at").alias("hour"), 'is_holiday')
+                    .agg({'ride_id': 'count', 'trip_duration': 'avg'})
+                    .withColumnRenamed('count(ride_id)', 'trip_count')
+                    .withColumnRenamed('avg(trip_duration)', 'avg_duration')
+                    .orderBy(col('started_at_date'))
+                    .toPandas())
+
+
+sns.lineplot(data=is_holiday2, x="hour", y="trip_count", hue='is_holiday')
+plt.title("Total Trips by Hour by Holiday")
+plt.xlabel("Hour")
+plt.ylabel("Count of Rentals")
+plt.xticks(range(0, 24))
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md We can see that the trip counts on non-holiday are significantly lower than holidays.
+
+# COMMAND ----------
+
+holiday_trips = (station_trips
+                    .filter(station_trips.is_holiday == True)
+                    .groupBy('started_at_date', hour("started_at").alias("hour"), 'member_casual', 'tempF')
+                    .agg({'ride_id': 'count', 'trip_duration': 'avg'})
+                    .withColumnRenamed('count(ride_id)', 'trip_count')
+                    .withColumnRenamed('avg(trip_duration)', 'avg_duration')
+                    .orderBy(col('started_at_date'))
+                    .toPandas())
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Trip Count by Date During Holidays
+
+# COMMAND ----------
+
+sns.lineplot(data=holiday_trips, x='started_at_date', y='trip_count')
+plt.title('Trip Count by Date During Holidays')
+plt.xlabel('Date')
+plt.ylabel('Trip count')
+plt.xticks(rotation=45)
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Trip Count by Hour During Holidays
+
+# COMMAND ----------
+
+sns.lineplot(data=holiday_trips, x='hour', y='trip_count')
+plt.title('Trip Count by Hour During Holidays')
+plt.xlabel('Hour')
+plt.ylabel('Trip count')
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md ##Average trip duration by date during holidays
+
+# COMMAND ----------
+
+sns.lineplot(data=holiday_trips, x='started_at_date', y='avg_duration')
+plt.title('Average trip duration by date during holidays')
+plt.xlabel('Date')
+plt.ylabel('Average trip duration (minutes)')
+plt.xticks(rotation=45)
+plt.show()
+
+
+# COMMAND ----------
+
+# MAGIC %md We can generally see that the trip counts are lower except for July 4th, and follow the same general pattern on the hourly basis.
+
+# COMMAND ----------
+
 # MAGIC %md 
 # MAGIC #Initial Analysis
 # MAGIC
@@ -77,9 +390,6 @@ plt.show()
 
 # COMMAND ----------
 
-station_trips = station_trips.withColumn("start_time", unix_timestamp(col("started_at"), "yyyy-MM-dd HH:mm:ss"))
-station_trips = station_trips.withColumn("end_time", unix_timestamp(col("ended_at"), "yyyy-MM-dd HH:mm:ss"))
-station_trips = station_trips.withColumn("trip_duration", (col("end_time") - col("start_time"))/60)
 
 display(station_trips.groupBy("rideable_type").agg(avg("trip_duration").alias("avg_trip_duration (min)"), count("*").alias("trip_count")))
 
@@ -161,14 +471,6 @@ display(popular_end_stations)
 # MAGIC # What are the seasonal trip trends for each season?
 # MAGIC
 # MAGIC Now we are going to look at the data grouped by each season.
-
-# COMMAND ----------
-
-station_trips = station_trips.withColumn("season", when((month(col("started_at")) >= 3) & (month(col("started_at")) <= 5), "Spring")
-                                              .when((month(col("started_at")) >= 6) & (month(col("started_at")) <= 8), "Summer")
-                                              .when((month(col("started_at")) >= 9) & (month(col("started_at")) <= 11), "Fall")
-                                              .otherwise("Winter"))
-
 
 # COMMAND ----------
 
@@ -919,7 +1221,7 @@ plt.show()
 
 # COMMAND ----------
 
-# MAGIC %md ## Average Duration by Day of Week
+# MAGIC %md ## Average Duration by Hour
 
 # COMMAND ----------
 
@@ -1260,33 +1562,6 @@ display(daily_trips)
 # MAGIC %md
 # MAGIC
 # MAGIC ## How does weather affect the daily/hourly trend of system use?
-
-# COMMAND ----------
-
-from pyspark.sql.functions import date_format, hour
-
-daily_trips = (station_trips
-               .groupBy(date_format('started_at', 'yyyy-MM-dd').alias('date'),
-                        hour('started_at').alias('hour'), dayofweek("started_at").alias("day_of_week"),
-                        'main', 'description')
-               .agg({'ride_id': 'count',
-                     'tempF': 'mean',
-                     'wind_speed_mph': 'mean',
-                     'pop': 'mean',
-                     'humidity': 'mean',
-                     'snow_1h': 'mean',
-                     'rain_1h': 'mean',
-                     'trip_duration': 'mean'})
-               .withColumnRenamed('count(ride_id)', 'num_trips')
-               .withColumnRenamed('avg(tempF)', 'avg_tempF')
-               .withColumnRenamed('avg(wind_speed_mph)', 'avg_wind_speed_mph')
-               .withColumnRenamed('avg(pop)', 'avg_pop')
-               .withColumnRenamed('avg(humidity)', 'avg_humidity')
-               .withColumnRenamed('avg(snow_1h)', 'avg_snow_1h')
-               .withColumnRenamed('avg(rain_1h)', 'avg_rain_1h')
-               .withColumnRenamed('avg(trip_duration)', 'avg_trip_duration')
-               .toPandas())
-
 
 # COMMAND ----------
 
