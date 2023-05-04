@@ -35,7 +35,7 @@ station_trips = all_bike_rentals.filter(all_bike_rentals.start_station_name == '
 
 # COMMAND ----------
 
-#display(station_trips)
+display(station_trips)
 
 # COMMAND ----------
 
