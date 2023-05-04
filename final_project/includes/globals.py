@@ -17,6 +17,12 @@ def construct_nested_group_path(*args: str) -> str:
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC
+# MAGIC Note that many of these paths were defined preemptively, regardless of whether or not they will be used downstream.
+
+# COMMAND ----------
+
 # Define paths for the two new bronze tables
 BRONZE_WEATHER_HISTORY_PATH = construct_nested_group_path("bronze_weather_history.delta")
 BRONZE_STATION_HISTORY_PATH = construct_nested_group_path("bronze_station_history.delta")
