@@ -1,8 +1,4 @@
 # Databricks notebook source
-# MAGIC %run ./includes/includes
-
-# COMMAND ----------
-
 # MAGIC %run ./includes/globals
 
 # COMMAND ----------
@@ -322,19 +318,15 @@ def gridsearch_run(param_grid, data):
 #param grid for gridsearch
 param_grid_for_gridsearch = {  
     'changepoint_prior_scale': [0.01, 0.1, 0.5],
-    'seasonality_prior_scale': [0.01, 0.1, 1.0],
-    'holidays_prior_scale': [0.01, 0.1, 1.0],
-    'changepoint_range': [0.8, 0.9, 1.0],
+    # 'seasonality_prior_scale': [0.01, 0.1, 1.0],
+    # 'holidays_prior_scale': [0.01, 0.1, 1.0],
+    # 'changepoint_range': [0.8, 0.9, 1.0],
     # 'daily_seasonality': [True, False],
     # 'weekly_seasonality': [True, False],
     # 'yearly_seasonality': [True, False],
     # 'growth': ['linear', 'flat'],
     # 'seasonality_mode': ['additive', 'multiplicative']
 }
-
-# COMMAND ----------
-
-3*3*3*3
 
 # COMMAND ----------
 
