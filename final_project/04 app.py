@@ -1,12 +1,62 @@
 # Databricks notebook source
-# MAGIC %run ./includes/includes
+# MAGIC %run ./includes/globals
+
+# COMMAND ----------
+
+import mlflow
+import mlflow.pyfunc
+from mlflow.tracking.client import MlflowClient
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+import time
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
+# MAGIC The following shows the current timestamp when the notebook is run (now).
 
 # COMMAND ----------
 
 from datetime import datetime
+import pytz
 
-now = datetime.now()
+now = datetime.now(pytz.timezone('America/New_York'))
 print("Current timestamp:", now)
+
+# COMMAND ----------
+
+# MAGIC %md The following shows the current Production Model version and Staging Model version.
+
+# COMMAND ----------
+
+# Get the client object for the MLflow tracking server
+client = mlflow.tracking.MlflowClient()
+
+# List all registered models
+registered_models = client.search_registered_models()
+
+model_name = 'G01_model_temp'
+
+# Get all model versions for the current registered model
+model_versions = client.search_model_versions(f"name='{model_name}'")
+
+model_info = [(model.version, model.current_stage) for model in model_versions]
+staging = [model for model in model_info if model[1] == "Staging"]
+
+production = [model for model in model_info if model[1] == "Production"]
+
+most_recent_staging = max(staging, key=lambda x: x[0])
+
+most_recent_production = max(production, key=lambda x: x[0])
+
+print(f"Most recent production model version: {most_recent_production[0]}")
+print(f"Most recent staging model version: {most_recent_staging[0]}")
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC
+# MAGIC The following map shows the location of our station, with a marker. When the marker is clicked, the station name pops up: W 21 St & 6 Ave.
 
 # COMMAND ----------
 
@@ -28,6 +78,10 @@ folium.Marker([lat, lon], popup='W 21 St & 6 Ave').add_to(map)
 
 # Display the map
 display(map)
+
+# COMMAND ----------
+
+# MAGIC %md insert
 
 # COMMAND ----------
 
@@ -69,8 +123,12 @@ weather_df = (
     spark
     .read
     .format("delta")
-    .load(SILVER_MODELING_HISTORICAL_PATH)
+    .load(BRONZE_NYC_WEATHER_PATH)
 )
+
+
+# COMMAND ----------
+
 
 
 # COMMAND ----------
@@ -122,7 +180,7 @@ model_staging = mlflow.prophet.load_model(model_staging_uri)
 import pandas as pd
 
 # Create a datetime index for the next 4 hours
-start_time = now
+start_time = datetime.now()
 end_time = start_time + pd.Timedelta(hours=4)
 index = pd.date_range(start=start_time, end=end_time, freq="30T")
 
