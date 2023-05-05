@@ -22,12 +22,12 @@
 
 # COMMAND ----------
 
-start_date = str(dbutils.widgets.get('01.start_date'))
-end_date = str(dbutils.widgets.get('02.end_date'))
-hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
+# start_date = str(dbutils.widgets.get('01.start_date'))
+# end_date = str(dbutils.widgets.get('02.end_date'))
+# hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
+# promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
 
-print(start_date,end_date,hours_to_forecast, promote_model)
+# print(start_date,end_date,hours_to_forecast, promote_model)
 
 # COMMAND ----------
 
@@ -121,6 +121,11 @@ current_weather_df = (
         "feels_like", "precipitation", "wind_speed",
     )
 )
+
+# COMMAND ----------
+
+station_id = info_data.filter(col("name") == GROUP_STATION_ASSIGNMENT).collect()[0]["station_id"]
+station_id
 
 # COMMAND ----------
 
