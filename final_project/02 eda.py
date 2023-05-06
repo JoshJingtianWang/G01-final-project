@@ -169,7 +169,7 @@ plt.show()
 
 # COMMAND ----------
 
-daily_trips1 = (station_trips
+daily_trips = (station_trips
                .groupBy(date_format('started_at', 'yyyy-MM-dd').alias('date'),
                         hour('started_at').alias('hour'), dayofweek("started_at").alias("day_of_week"),
                         'main', 'description')
@@ -1571,7 +1571,7 @@ display(daily_trips)
 
 # COMMAND ----------
 
-df_pandas = daily_trips
+df_pandas = daily_trips.toPandas()
 corr_matrix = df_pandas.corr()
 fig, ax = plt.subplots(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', ax=ax)
@@ -1587,6 +1587,30 @@ plt.show()
 # MAGIC %md 
 # MAGIC
 # MAGIC ##Average temperature and number of trips per day
+
+# COMMAND ----------
+
+daily_trips = (station_trips
+               .groupBy(date_format('started_at', 'yyyy-MM-dd').alias('date'),
+                        hour('started_at').alias('hour'), dayofweek("started_at").alias("day_of_week"),
+                        'main', 'description')
+               .agg({'ride_id': 'count',
+                     'tempF': 'mean',
+                     'wind_speed_mph': 'mean',
+                     'pop': 'mean',
+                     'humidity': 'mean',
+                     'snow_1h': 'mean',
+                     'rain_1h': 'mean',
+                     'trip_duration': 'mean'})
+               .withColumnRenamed('count(ride_id)', 'num_trips')
+               .withColumnRenamed('avg(tempF)', 'avg_tempF')
+               .withColumnRenamed('avg(wind_speed_mph)', 'avg_wind_speed_mph')
+               .withColumnRenamed('avg(pop)', 'avg_pop')
+               .withColumnRenamed('avg(humidity)', 'avg_humidity')
+               .withColumnRenamed('avg(snow_1h)', 'avg_snow_1h')
+               .withColumnRenamed('avg(rain_1h)', 'avg_rain_1h')
+               .withColumnRenamed('avg(trip_duration)', 'avg_trip_duration')
+               .toPandas())
 
 # COMMAND ----------
 
@@ -2669,4 +2693,7 @@ plt.show()
 
 # COMMAND ----------
 
+import json
 
+# Return Success
+dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))

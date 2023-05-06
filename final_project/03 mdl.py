@@ -3,13 +3,9 @@
 
 # COMMAND ----------
 
-start_date = str(dbutils.widgets.get('01.start_date'))
-end_date = str(dbutils.widgets.get('02.end_date'))
-hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
+promote_model = bool(True if str(dbutils.widgets.get('01.promote_model')).lower() == 'yes' else False)
 
-print(start_date,end_date,hours_to_forecast, promote_model)
-print("YOUR CODE HERE...")
+print(promote_model)
 
 # COMMAND ----------
 
@@ -374,20 +370,20 @@ except mlflow.exceptions.RestException: #if there are no models named G01_model
 
 # COMMAND ----------
 
-GROUP_NAME = 'G01'
-ARTIFACT_PATH = f"{GROUP_NAME}_model"
+# GROUP_NAME = 'G01'
+# ARTIFACT_PATH = f"{GROUP_NAME}_model"
 
-model_production_uri = "models:/{model_name}/production".format(model_name=ARTIFACT_PATH)
+# model_production_uri = "models:/{model_name}/production".format(model_name=ARTIFACT_PATH)
 
-print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_production_uri))
+# print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_production_uri))
 
-model_production = mlflow.prophet.load_model(model_production_uri)
+# model_production = mlflow.prophet.load_model(model_production_uri)
 
-model_staging_uri = "models:/{model_name}/staging".format(model_name=ARTIFACT_PATH)
+# model_staging_uri = "models:/{model_name}/staging".format(model_name=ARTIFACT_PATH)
 
-print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_staging_uri))
+# print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_staging_uri))
 
-model_staging = mlflow.prophet.load_model(model_staging_uri)
+# model_staging = mlflow.prophet.load_model(model_staging_uri)
 
 # COMMAND ----------
 
@@ -396,72 +392,44 @@ model_staging = mlflow.prophet.load_model(model_staging_uri)
 
 # COMMAND ----------
 
-# # split data into train/test
-# train_ratio = 0.8
-
-# # Calculate the split index
-# split_index = int(len(data_df) * train_ratio)
-
-# # Split the data into train and test sets
-# train_df = data_df.iloc[:split_index]
-# test_df = data_df.iloc[split_index:]
+# production_forecast = model_production.predict(test_df)
+# staging_forecast = model_staging.predict(test_df)
 
 # COMMAND ----------
 
-test_df.head()
+# production_forecast.head()
 
 # COMMAND ----------
 
-production_forecast = model_production.predict(test_df)
-staging_forecast = model_staging.predict(test_df)
+# temp_df = test_df[['ds', 'y']].reset_index(drop = True)
+
+# results_production = pd.DataFrame()
+# results_production['yhat'] = production_forecast['yhat']
+# results_production['residual'] = production_forecast['yhat'] - temp_df['y']
+# results_production['label'] = 'Production'
+
+# results_staging = pd.DataFrame()
+# results_staging['yhat'] = staging_forecast['yhat']
+# results_staging['residual'] = staging_forecast['yhat'] - temp_df['y']
+# results_staging['label'] = 'Staging'
+
+# results = pd.concat([results_production, results_staging], axis=0, ignore_index=True)
 
 # COMMAND ----------
 
-production_forecast.head()
+# results.head()
 
 # COMMAND ----------
 
-# results=production_forecast[['ds','yhat']].join(test_df, on = "ds")
-#                                                 #lsuffix='_caller', 
-#                                                 # rsuffix='_other'
-temp_df = test_df[['ds', 'y']].reset_index(drop = True)      
-# results['yhat_production'] = production_forecast['yhat']                                          
-# results['residual_production'] = production_forecast['yhat'] - results['y']
-# results['yhat_staging'] = production_forecast['yhat']        
-# results['residual_staging'] = staging_forecast['yhat'] - results['y']
-
-results_production = pd.DataFrame()
-results_production['yhat'] = production_forecast['yhat']
-results_production['residual'] = production_forecast['yhat'] - temp_df['y']
-results_production['label'] = 'Production'
-
-results_staging = pd.DataFrame()
-results_staging['yhat'] = staging_forecast['yhat']
-results_staging['residual'] = staging_forecast['yhat'] - temp_df['y']
-results_staging['label'] = 'Staging'
-
-results = pd.concat([results_production, results_staging], axis=0, ignore_index=True)
-
-
-# COMMAND ----------
-
-results.head()
-
-# COMMAND ----------
-
-results.tail()
-
-# COMMAND ----------
-
-#plot the residuals
-fig = px.scatter(
-    results, x='yhat', y='residual',
-    marginal_y='violin',
-    trendline='ols',
-    color = 'label',
-    opacity=0.5 
-)
-fig.show()
+# #plot the residuals
+# fig = px.scatter(
+#     results, x='yhat', y='residual',
+#     marginal_y='violin',
+#     trendline='ols',
+#     color = 'label',
+#     opacity=0.5 
+# )
+# fig.show()
 
 # COMMAND ----------
 

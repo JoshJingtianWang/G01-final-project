@@ -22,14 +22,9 @@
 
 # COMMAND ----------
 
-# start_date = str(dbutils.widgets.get('01.start_date'))
-# end_date = str(dbutils.widgets.get('02.end_date'))
-# hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-# promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
+promote_model = bool(True if str(dbutils.widgets.get('01.promote_model')).lower() == 'yes' else False)
 
-# print(start_date,end_date,hours_to_forecast, promote_model)
-
-PROMOTE_MODEL = False
+print(promote_model)
 
 # COMMAND ----------
 
@@ -668,7 +663,7 @@ fig.show()
 # COMMAND ----------
 
 # Promote the staging model if desired
-if PROMOTE_MODEL and model_staging:
+if promote_model and model_staging:
 
     # Get the current production model
     latest_production = [model for model in latest_versions if model.current_stage=="Production"][0]
