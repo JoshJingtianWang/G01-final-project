@@ -38,7 +38,7 @@ import plotly.express as px
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Archive and delete all previous models
+# MAGIC # Archive and delete all previous models (optional)
 
 # COMMAND ----------
 
@@ -85,72 +85,6 @@ data_df.head()
 
 # COMMAND ----------
 
-# split data into train/test
-train_ratio = 0.8
-
-# Calculate the split index
-split_index = int(len(data_df) * train_ratio)
-
-# Split the data into train and test sets
-train_df = data_df.iloc[:split_index]
-test_df = data_df.iloc[split_index:]
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC # Generate synthetic data
-
-# COMMAND ----------
-
-# def generate_bike_changes(start_date, num_days, num_intervals):
-#     data = []
-#     curr_date = start_date
-
-#     # Define holidays (e.g., New Year's Day, Christmas Day)
-#     holidays = [datetime(start_date.year, 1, 1), datetime(start_date.year, 12, 25)]
-
-#     for day in range(num_days):
-#         for interval in range(num_intervals):
-#             # Add a sine wave component to the bike change values
-#             cycle_length = 24
-#             amplitude = 10
-#             net_bike_change = amplitude * np.sin(2 * np.pi * interval / cycle_length)
-#             net_bike_change += random.uniform(-3, 3)  # Add some random noise
-
-#             # # Add holiday column
-#             # is_holiday = 1 if curr_date.date() in [holiday.date() for holiday in holidays] else 0
-
-#             # Add weather data (temperature and precipitation)
-#             temperature = random.uniform(0, 100)  # Random temperature between 0 and 100 degrees Fahrenheit
-#             precipitation = random.uniform(0, 1)  # Random precipitation between 0 and 1 inches
-
-#             data.append((curr_date, net_bike_change, temperature, precipitation))
-#             curr_date += timedelta(hours=1)
-
-#     return data
-
-# # Generate synthetic data
-# start_date = datetime(2020, 1, 1)
-# num_days = 365
-# num_intervals = 24  # Hourly intervals
-
-# random.seed(42)
-# data = generate_bike_changes(start_date, num_days, num_intervals)
-
-# # Create a Pandas dataframe
-# data_df = pd.DataFrame(data, columns=["ds", "y", "temperature", "precipitation"])
-
-# data_df.head()
-
-# COMMAND ----------
-
-# x = data_df.ds[:100]
-# y = data_df.y[:100]
-# plt.plot(x, y)
-# plt.show()
-
-# COMMAND ----------
-
 # # split data into train/test
 # train_ratio = 0.8
 
@@ -164,7 +98,7 @@ test_df = data_df.iloc[split_index:]
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # models
+# MAGIC # Models
 
 # COMMAND ----------
 
@@ -175,140 +109,109 @@ def extract_params(pr_model):
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## base model
+# MAGIC ## setting up function for training base model
 
 # COMMAND ----------
 
-GROUP_NAME = 'G01'
-ARTIFACT_PATH = f"{GROUP_NAME}_model"
-params = {} #empty param dict for base model
 # Start an MLflow run
-with mlflow.start_run():
-    base_model = Prophet(**params) 
-    base_model.add_country_holidays(country_name='US')
-    base_model.add_regressor('temperature')
-    base_model.add_regressor('feels_like')
-    base_model.add_regressor('precipitation')
-    base_model.fit(train_df)
+def train_base_model(ARTIFACT_PATH, params, data):
+    with mlflow.start_run():
 
-    # Cross-validation
-    df_cv = cross_validation(
-                            model=base_model,
-                            horizon="7 days",
-                            period="60 days",
-                            initial="120 days",
-                            parallel="threads",
-                            #disable_tqdm=False,
-                        )
-    # Model performance
-    df_p = performance_metrics(df_cv, rolling_window=1)
-    rmse = df_p['rmse'].values[0]
-    
-    params = extract_params(base_model)
+        # Initialize and fit the model
+        base_model = Prophet(**params) 
+        base_model.add_country_holidays(country_name='US')
+        base_model.add_regressor('temperature')
+        base_model.add_regressor('feels_like')
+        base_model.add_regressor('precipitation')
+        base_model.fit(data)
 
-    # Log the best hyperparameters and the RMSE metric in MLflow
-    mlflow.prophet.log_model(base_model, artifact_path=ARTIFACT_PATH)
-    #mlflow.log_params(params)
-    mlflow.log_metric("rmse", rmse)
-    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-    print(f"Model artifact logged to: {model_uri}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### register base model
-
-# COMMAND ----------
-
-#register base model
-model_details = mlflow.register_model(model_uri=model_uri, name=ARTIFACT_PATH)
-
-# After creating a model version, it may take a short period of time to become ready. 
-def wait_until_ready(model_name, model_version):
-  client = MlflowClient()
-  for _ in range(10):
-    model_version_details = client.get_model_version(
-      name=model_name,
-      version=model_version,
-    )
-    status = ModelVersionStatus.from_string(model_version_details.status)
-    print("Model status: %s" % ModelVersionStatus.to_string(status))
-    if status == ModelVersionStatus.READY:
-      break
-    time.sleep(1)
-  
-wait_until_ready(model_details.name, model_details.version)
-
-# COMMAND ----------
-
-#add model descriptions
-client = MlflowClient()
-client.update_registered_model(
-  name=model_details.name,
-  description="The model forecasts the number of bikes that will be rented in the near future.",
-)
-client.update_model_version(
-  name=model_details.name,
-  version=model_details.version,
-  description="This model version is the baseline model."
-)
-
-# COMMAND ----------
-
-# set model stage
-client.transition_model_version_stage(
-  name=model_details.name,
-  version=model_details.version,
-  stage='Production',
-)
-model_version_details = client.get_model_version(
-  name=model_details.name,
-  version=model_details.version,
-)
-model_version_details.current_stage
-
-# COMMAND ----------
-
-model_version_details.version
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Tuned model
-
-# COMMAND ----------
-
-#function for gridsearch
-def gridsearch_run(param_grid, data):
-    # Set up parameter grid
-    # Generate all combinations of parameters
-    rmses = [] 
-    all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
-    for i, params in enumerate(all_params):
-        print(f"Training model {i+1}/{len(all_params)}")
-        model = Prophet(**params) 
-        #holidays = pd.DataFrame({"ds": [], "holiday": []})
-        model.add_country_holidays(country_name='US')
-        model.add_regressor('temperature')
-        model.add_regressor('feels_like')
-        model.add_regressor('precipitation')
-        model.fit(data)
-        
         # Cross-validation
         df_cv = cross_validation(
-                                model=model,
+                                model=base_model,
                                 horizon="7 days",
                                 period="60 days",
                                 initial="120 days",
                                 parallel="threads",
                                 #disable_tqdm=False,
                             )
-        # Model performance
+        # Get model performance
         df_p = performance_metrics(df_cv, rolling_window=1)
+        rmse = df_p['rmse'].values[0]
 
-        # Save model performance metrics for this combination of hyper parameters
-        rmses.append(df_p['rmse'].values[0])
+        # Log the model
+        mlflow.prophet.log_model(base_model, artifact_path=ARTIFACT_PATH)
+        
+        # Log the best hyperparameters
+        params = extract_params(base_model)
+        #remove this attribute because it is too long to be logged. throws "RestException: INVALID_PARAMETER_VALUE"
+        del params["component_modes"]
+        mlflow.log_params(params)
 
+        # Log the RMSE metric
+        mlflow.log_metric("rmse", rmse)
+
+        model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+        print(f"Model artifact logged to: {model_uri}")
+    
+    return model_uri
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Setting up function for training tuned model
+
+# COMMAND ----------
+
+#function for gridsearch
+def gridsearch_run(param_grid, data):
+    
+    # Set up parameter grid. Generate all combinations of parameters
+    rmses = [] 
+    all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
+    for i, params in enumerate(all_params):
+        
+        print(f"\n\nTraining model {i+1}/{len(all_params)}:\n")
+
+        with mlflow.start_run():
+            # Initialize and fit the model
+            model = Prophet(**params) 
+            model.add_country_holidays(country_name='US')
+            model.add_regressor('temperature')
+            model.add_regressor('feels_like')
+            model.add_regressor('precipitation')
+            model.fit(data)
+            
+            # Cross-validation
+            df_cv = cross_validation(
+                                    model=model,
+                                    horizon="7 days",
+                                    period="60 days",
+                                    initial="120 days",
+                                    parallel="threads",
+                                    #disable_tqdm=False,
+                                )
+            
+            # Model performance
+            df_p = performance_metrics(df_cv, rolling_window=1)
+
+            # Save model performance metrics for this combination of hyper parameters
+            rmses.append(df_p['rmse'].values[0])
+
+            # Log the model
+            mlflow.prophet.log_model(model, artifact_path=ARTIFACT_PATH)
+            
+            # Log the best hyperparameters
+            params = extract_params(model)
+
+            #remove this attribute because it is too long to be logged. throws "RestException: INVALID_PARAMETER_VALUE"
+            del params["component_modes"]
+
+            mlflow.log_params(params)
+
+            # Log the RMSE metric
+            mlflow.log_metric("rmse", df_p['rmse'])
+
+    # getting parameters with the best RMSE
     min_index = np.argmin(rmses)
     min_rmse = rmses[min_index]
     best_params = all_params[min_index]
@@ -317,123 +220,152 @@ def gridsearch_run(param_grid, data):
 
 #param grid for gridsearch
 param_grid_for_gridsearch = {  
-    'changepoint_prior_scale': [0.01, 0.1, 0.5],
-    # 'seasonality_prior_scale': [0.01, 0.1, 1.0],
-    # 'holidays_prior_scale': [0.01, 0.1, 1.0],
-    # 'changepoint_range': [0.8, 0.9, 1.0],
-    # 'daily_seasonality': [True, False],
-    # 'weekly_seasonality': [True, False],
-    # 'yearly_seasonality': [True, False],
-    # 'growth': ['linear', 'flat'],
-    # 'seasonality_mode': ['additive', 'multiplicative']
+    'changepoint_prior_scale': [0.001, 0.01, 1],
+    'seasonality_prior_scale': [15.0, 20.0, 30.0], 
+    # for all hyperparams below
+    # we have determined these to be the best
+    # setting them to fixed values for speed
+    'holidays_prior_scale': [7], 
+    'changepoint_range': [1],
+    'daily_seasonality': [True],
+    'weekly_seasonality': [False],
+    'yearly_seasonality': [False],
+    'growth': ['linear'],
+    'seasonality_mode': ['additive']
 }
 
-# COMMAND ----------
+def train_tuned_model(ARTIFACT_PATH, data):
 
-# Perform hyperparameter tuning with MLflow tracking
+    # Perform hyperparameter gridsearch
+    best_params, min_rmse = gridsearch_run(param_grid_for_gridsearch, data)
 
-GROUP_NAME = 'G01'
-ARTIFACT_PATH = f"{GROUP_NAME}_model"
-optimize_method = 'gridsearch'
+    print(f"\n\nBest params: {best_params}")
+    print(f"Best rmse: {min_rmse}\n\n")
 
+    #fit the model with the best parameters
+    with mlflow.start_run():
+        # Train the best model using the best hyperparameters
+        best_model = Prophet(**best_params) 
+        best_model.add_country_holidays(country_name='US')
+        best_model.add_regressor('temperature')
+        best_model.add_regressor('feels_like')
+        best_model.add_regressor('precipitation')
+        best_model.fit(data)
 
-# Start an MLflow run
-with mlflow.start_run():
+        # Log the model
+        mlflow.prophet.log_model(best_model, artifact_path=ARTIFACT_PATH)
+        
+        # Log the best hyperparameters
+        params = extract_params(best_model)
 
-    if optimize_method == 'hyperopt':
-        best_params = hyperopt_run(search_space_for_hyperopt)
+        #remove this attribute because it is too long to be logged. throws "RestException: INVALID_PARAMETER_VALUE"
+        del params["component_modes"]
 
-    elif optimize_method == 'gridsearch':
-        best_params, min_rmse = gridsearch_run(param_grid_for_gridsearch, train_df)
+        mlflow.log_params(params)
 
-    else:
-        raise ValueError('optimize_method not supported')
+        # Log the RMSE metric
+        mlflow.log_metric("rmse", min_rmse)
+        
+        model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+        print(f"Model artifact logged to: {model_uri}")
 
-    print()
-    print()
-    print()
-    print("Best params:", best_params)
-
-    # Train the best model using the best hyperparameters
-    best_model = Prophet(**best_params) 
-    best_model.add_country_holidays(country_name='US')
-    best_model.add_regressor('temperature')
-    best_model.add_regressor('feels_like')
-    best_model.add_regressor('precipitation')
-    best_model.fit(train_df)
-
-    # Log the best hyperparameters and the RMSE metric in MLflow
-    mlflow.prophet.log_model(best_model, artifact_path=ARTIFACT_PATH)
-    mlflow.log_params(best_params)
-    mlflow.log_metric("rmse", min_rmse)
-    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-    print(f"Model artifact logged to: {model_uri}")
-
-# COMMAND ----------
-
-#register model
-model_details = mlflow.register_model(model_uri=model_uri, name=ARTIFACT_PATH)
-
-def wait_until_ready(model_name, model_version):
-  client = MlflowClient()
-  for _ in range(10):
-    model_version_details = client.get_model_version(
-      name=model_name,
-      version=model_version,
-    )
-    status = ModelVersionStatus.from_string(model_version_details.status)
-    print("Model status: %s" % ModelVersionStatus.to_string(status))
-    if status == ModelVersionStatus.READY:
-      break
-    time.sleep(1)
-  
-wait_until_ready(model_details.name, model_details.version)
-
-# COMMAND ----------
-
-# add model description
-
-client = MlflowClient()
-client.update_registered_model(
-  name=model_details.name,
-  description="The model forecasts the number of bikes that will be rented in the near future.",
-)
-client.update_model_version(
-  name=model_details.name,
-  version=model_details.version,
-  description="This model version has been tuned via Gridsearch."
-)
-
-# COMMAND ----------
-
-# set stage to "Staging"
-client.transition_model_version_stage(
-  name=model_details.name,
-  version=model_details.version,
-  stage='Staging',
-)
-model_version_details = client.get_model_version(
-  name=model_details.name,
-  version=model_details.version,
-)
-model_version_details.current_stage
-
-# COMMAND ----------
-
-model_version_details.version
+    return model_uri
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Transition to production
+# MAGIC ## Setting up function for registering models
 
 # COMMAND ----------
 
-# client.transition_model_version_stage(
-#   name=model_details.name,
-#   version=model_details.version,
-#   stage='Production',
-# )
+def register_model(model_type, staging, model_uri):
+
+    #register base model
+    model_details = mlflow.register_model(model_uri=model_uri, name=ARTIFACT_PATH)
+
+    # After creating a model version, it may take a short period of time to become ready. 
+    def wait_until_ready(model_name, model_version):
+        client = MlflowClient()
+        for _ in range(10):
+            model_version_details = client.get_model_version(
+            name=model_name,
+            version=model_version,
+            )
+            status = ModelVersionStatus.from_string(model_version_details.status)
+            print("Model status: %s" % ModelVersionStatus.to_string(status))
+            if status == ModelVersionStatus.READY:
+                break
+            time.sleep(1)
+    
+    wait_until_ready(model_details.name, model_details.version)
+
+    #add model descriptions
+    client = MlflowClient()
+    client.update_registered_model(
+    name=model_details.name,
+    description="The model forecasts the number of bikes that will be rented in the near future.",
+    )
+    client.update_model_version(
+    name=model_details.name,
+    version=model_details.version,
+    description=f"This model version is the {model_type} model."
+    )
+
+    # set model stage
+    client.transition_model_version_stage(
+    name=model_details.name,
+    version=model_details.version,
+    stage=staging,
+    )
+    # model_version_details = client.get_model_version(
+    # name=model_details.name,
+    # version=model_details.version,
+    # )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## training and registering models
+# MAGIC If there are currently no production models, train a baseline model and register it.
+# MAGIC
+# MAGIC If there is a production model, train a tuned model and register it.
+
+# COMMAND ----------
+
+GROUP_NAME = 'G01'
+ARTIFACT_PATH = f"{GROUP_NAME}_model"
+params = {} #empty param dict for base model
+
+client = MlflowClient()
+registered_models = client.list_registered_models()
+
+try:
+    production_versions = client.get_latest_versions(ARTIFACT_PATH, stages=["Production"])
+
+    if production_versions: #if there are production models
+        print('\n\nThere is currently a production model. Proceeding to train a tuned model.\n\n')
+        model_type = "tuned"
+        staging = "Staging"
+        model_uri = train_tuned_model(ARTIFACT_PATH, data_df)
+        print('\n\nTraining complete. Registering the model as the staging model.\n\n')
+        register_model(model_type, staging, model_uri)
+    else: #if there are no production models
+        print('\n\nThere are currently no production models. Proceeding to train a baseline model.\n\n')
+        model_type = "baseline"
+        staging = "Production"
+        model_uri = train_base_model(ARTIFACT_PATH, params, data_df)
+        print('\n\nTraining complete. Registering the model as the production model.\n\n')
+        register_model(model_type, staging, model_uri)
+
+except mlflow.exceptions.RestException: #if there are no models named G01_model
+    print('\n\nThere are currently no models. Proceeding to train a baseline model.\n\n')
+    model_type = "baseline"
+    staging = "Production"
+    params = {}
+    model_uri = train_base_model(ARTIFACT_PATH, params, data_df)
+    print('\n\nTraining complete. Registering the model as the production model.\n\n')
+    register_model(model_type, staging, model_uri)
+
 
 # COMMAND ----------
 
@@ -460,7 +392,19 @@ model_staging = mlflow.prophet.load_model(model_staging_uri)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Inferencing and residual plot
+# MAGIC # Inferencing and residual plot (optional)
+
+# COMMAND ----------
+
+# # split data into train/test
+# train_ratio = 0.8
+
+# # Calculate the split index
+# split_index = int(len(data_df) * train_ratio)
+
+# # Split the data into train and test sets
+# train_df = data_df.iloc[:split_index]
+# test_df = data_df.iloc[split_index:]
 
 # COMMAND ----------
 
