@@ -85,72 +85,6 @@ data_df.head()
 
 # COMMAND ----------
 
-# split data into train/test
-train_ratio = 0.8
-
-# Calculate the split index
-split_index = int(len(data_df) * train_ratio)
-
-# Split the data into train and test sets
-train_df = data_df.iloc[:split_index]
-test_df = data_df.iloc[split_index:]
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC # Generate synthetic data
-
-# COMMAND ----------
-
-# def generate_bike_changes(start_date, num_days, num_intervals):
-#     data = []
-#     curr_date = start_date
-
-#     # Define holidays (e.g., New Year's Day, Christmas Day)
-#     holidays = [datetime(start_date.year, 1, 1), datetime(start_date.year, 12, 25)]
-
-#     for day in range(num_days):
-#         for interval in range(num_intervals):
-#             # Add a sine wave component to the bike change values
-#             cycle_length = 24
-#             amplitude = 10
-#             net_bike_change = amplitude * np.sin(2 * np.pi * interval / cycle_length)
-#             net_bike_change += random.uniform(-3, 3)  # Add some random noise
-
-#             # # Add holiday column
-#             # is_holiday = 1 if curr_date.date() in [holiday.date() for holiday in holidays] else 0
-
-#             # Add weather data (temperature and precipitation)
-#             temperature = random.uniform(0, 100)  # Random temperature between 0 and 100 degrees Fahrenheit
-#             precipitation = random.uniform(0, 1)  # Random precipitation between 0 and 1 inches
-
-#             data.append((curr_date, net_bike_change, temperature, precipitation))
-#             curr_date += timedelta(hours=1)
-
-#     return data
-
-# # Generate synthetic data
-# start_date = datetime(2020, 1, 1)
-# num_days = 365
-# num_intervals = 24  # Hourly intervals
-
-# random.seed(42)
-# data = generate_bike_changes(start_date, num_days, num_intervals)
-
-# # Create a Pandas dataframe
-# data_df = pd.DataFrame(data, columns=["ds", "y", "temperature", "precipitation"])
-
-# data_df.head()
-
-# COMMAND ----------
-
-# x = data_df.ds[:100]
-# y = data_df.y[:100]
-# plt.plot(x, y)
-# plt.show()
-
-# COMMAND ----------
-
 # # split data into train/test
 # train_ratio = 0.8
 
@@ -180,7 +114,7 @@ def extract_params(pr_model):
 # COMMAND ----------
 
 # Start an MLflow run
-def train_base_model(ARTIFACT_PATH, params):
+def train_base_model(ARTIFACT_PATH, params, data):
     with mlflow.start_run():
 
         # Initialize and fit the model
@@ -189,7 +123,7 @@ def train_base_model(ARTIFACT_PATH, params):
         base_model.add_regressor('temperature')
         base_model.add_regressor('feels_like')
         base_model.add_regressor('precipitation')
-        base_model.fit(train_df)
+        base_model.fit(data)
 
         # Cross-validation
         df_cv = cross_validation(
@@ -235,32 +169,47 @@ def gridsearch_run(param_grid, data):
     rmses = [] 
     all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
     for i, params in enumerate(all_params):
-
+        
         print(f"\n\nTraining model {i+1}/{len(all_params)}:\n")
 
-        # Initialize and fit the model
-        model = Prophet(**params) 
-        model.add_country_holidays(country_name='US')
-        model.add_regressor('temperature')
-        model.add_regressor('feels_like')
-        model.add_regressor('precipitation')
-        model.fit(data)
-        
-        # Cross-validation
-        df_cv = cross_validation(
-                                model=model,
-                                horizon="7 days",
-                                period="60 days",
-                                initial="120 days",
-                                parallel="threads",
-                                #disable_tqdm=False,
-                            )
-        
-        # Model performance
-        df_p = performance_metrics(df_cv, rolling_window=1)
+        with mlflow.start_run():
+            # Initialize and fit the model
+            model = Prophet(**params) 
+            model.add_country_holidays(country_name='US')
+            model.add_regressor('temperature')
+            model.add_regressor('feels_like')
+            model.add_regressor('precipitation')
+            model.fit(data)
+            
+            # Cross-validation
+            df_cv = cross_validation(
+                                    model=model,
+                                    horizon="7 days",
+                                    period="60 days",
+                                    initial="120 days",
+                                    parallel="threads",
+                                    #disable_tqdm=False,
+                                )
+            
+            # Model performance
+            df_p = performance_metrics(df_cv, rolling_window=1)
 
-        # Save model performance metrics for this combination of hyper parameters
-        rmses.append(df_p['rmse'].values[0])
+            # Save model performance metrics for this combination of hyper parameters
+            rmses.append(df_p['rmse'].values[0])
+
+            # Log the model
+            mlflow.prophet.log_model(model, artifact_path=ARTIFACT_PATH)
+            
+            # Log the best hyperparameters
+            params = extract_params(model)
+
+            #remove this attribute because it is too long to be logged. throws "RestException: INVALID_PARAMETER_VALUE"
+            del params["component_modes"]
+
+            mlflow.log_params(params)
+
+            # Log the RMSE metric
+            mlflow.log_metric("rmse", df_p['rmse'])
 
     # getting parameters with the best RMSE
     min_index = np.argmin(rmses)
@@ -271,9 +220,12 @@ def gridsearch_run(param_grid, data):
 
 #param grid for gridsearch
 param_grid_for_gridsearch = {  
-    'changepoint_prior_scale': [0.01, 0.05],
-    'seasonality_prior_scale': [5.0, 10.0, 20.0],
-    'holidays_prior_scale': [2, 5, 7],
+    'changepoint_prior_scale': [0.001, 0.01, 1],
+    'seasonality_prior_scale': [15.0, 20.0, 30.0], 
+    # for all hyperparams below
+    # we have determined these to be the best
+    # setting them to fixed values for speed
+    'holidays_prior_scale': [7], 
     'changepoint_range': [1],
     'daily_seasonality': [True],
     'weekly_seasonality': [False],
@@ -282,23 +234,23 @@ param_grid_for_gridsearch = {
     'seasonality_mode': ['additive']
 }
 
-def train_tuned_model(ARTIFACT_PATH):
-    # Start an MLflow run
+def train_tuned_model(ARTIFACT_PATH, data):
+
+    # Perform hyperparameter gridsearch
+    best_params, min_rmse = gridsearch_run(param_grid_for_gridsearch, data)
+
+    print(f"\n\nBest params: {best_params}")
+    print(f"Best rmse: {min_rmse}\n\n")
+
+    #fit the model with the best parameters
     with mlflow.start_run():
-        
-        # Perform hyperparameter gridsearch
-        best_params, min_rmse = gridsearch_run(param_grid_for_gridsearch, train_df)
-
-        print(f"\n\nBest params: {best_params}")
-        print(f"Best rmse: {min_rmse}\n\n")
-
         # Train the best model using the best hyperparameters
         best_model = Prophet(**best_params) 
         best_model.add_country_holidays(country_name='US')
         best_model.add_regressor('temperature')
         best_model.add_regressor('feels_like')
         best_model.add_regressor('precipitation')
-        best_model.fit(train_df)
+        best_model.fit(data)
 
         # Log the model
         mlflow.prophet.log_model(best_model, artifact_path=ARTIFACT_PATH)
@@ -394,14 +346,14 @@ try:
         print('\n\nThere is currently a production model. Proceeding to train a tuned model.\n\n')
         model_type = "tuned"
         staging = "Staging"
-        model_uri = train_tuned_model(ARTIFACT_PATH)
+        model_uri = train_tuned_model(ARTIFACT_PATH, data_df)
         print('\n\nTraining complete. Registering the model as the staging model.\n\n')
         register_model(model_type, staging, model_uri)
     else: #if there are no production models
         print('\n\nThere are currently no production models. Proceeding to train a baseline model.\n\n')
         model_type = "baseline"
         staging = "Production"
-        model_uri = train_base_model(ARTIFACT_PATH)
+        model_uri = train_base_model(ARTIFACT_PATH, params, data_df)
         print('\n\nTraining complete. Registering the model as the production model.\n\n')
         register_model(model_type, staging, model_uri)
 
@@ -410,7 +362,7 @@ except mlflow.exceptions.RestException: #if there are no models named G01_model
     model_type = "baseline"
     staging = "Production"
     params = {}
-    model_uri = train_base_model(ARTIFACT_PATH, params)
+    model_uri = train_base_model(ARTIFACT_PATH, params, data_df)
     print('\n\nTraining complete. Registering the model as the production model.\n\n')
     register_model(model_type, staging, model_uri)
 
@@ -440,7 +392,19 @@ model_staging = mlflow.prophet.load_model(model_staging_uri)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Inferencing and residual plot
+# MAGIC # Inferencing and residual plot (optional)
+
+# COMMAND ----------
+
+# # split data into train/test
+# train_ratio = 0.8
+
+# # Calculate the split index
+# split_index = int(len(data_df) * train_ratio)
+
+# # Split the data into train and test sets
+# train_df = data_df.iloc[:split_index]
+# test_df = data_df.iloc[split_index:]
 
 # COMMAND ----------
 
