@@ -61,6 +61,11 @@ MODEL_NAME = ARTIFACT_PATH
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC We must load the three bronze tables that were provided for us, and that are being updated every thirty seconds. This is done in this notebook as opposed to in the ETL to ensure that we are getting the most recent data.
+
+# COMMAND ----------
+
 # Read the station status bronze table
 status_data = (
     spark
@@ -96,6 +101,11 @@ weather_df = (
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC We can now load the silver modeling table, which will be useful for forecasting.
+
+# COMMAND ----------
+
 # Load the silver modeling historical table
 silver_historical_modeling_df = (
     spark
@@ -108,6 +118,11 @@ silver_historical_modeling_df = (
 
 # MAGIC %md
 # MAGIC # Create gold tables
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The first gold table we are creating contains only one row, which essentially contains the most recent information about our station.
 
 # COMMAND ----------
 
@@ -177,6 +192,11 @@ gold_df = (
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC The second gold table we're creating will perform aggregations that mold the data from the bronze tables into a form that is ready for forecasting.
+
+# COMMAND ----------
+
 gold_forecast_df = (
     weather_df
     # Create new "temp" columns for each temperature unit
@@ -231,6 +251,11 @@ gold_forecast_df = (
     # Order by datetime
     .orderBy(col("ds"), ascending=True)
 )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Finally, we will create a gold table that will transform the data from the bronze station status table into a form that contains a timestamp and the number of bikes available at that time.
 
 # COMMAND ----------
 
@@ -322,6 +347,11 @@ display(station_map)
 
 # MAGIC %md
 # MAGIC # Current weather
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The following shows a table of the current weather at our station, including primarily the regressors we used for forecasting, but also a few other variables.
 
 # COMMAND ----------
 
