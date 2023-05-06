@@ -29,6 +29,8 @@
 
 # print(start_date,end_date,hours_to_forecast, promote_model)
 
+PROMOTE_MODEL = False
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -52,8 +54,8 @@ from pyspark.sql.types import *
 
 # COMMAND ----------
 
-# ARTIFACT_PATH = f"{GROUP_NAME}_model"
-ARTIFACT_PATH = f"{GROUP_NAME}_model_temp"
+ARTIFACT_PATH = f"{GROUP_NAME}_model"
+# ARTIFACT_PATH = f"{GROUP_NAME}_model_temp"
 MODEL_NAME = ARTIFACT_PATH
 
 # COMMAND ----------
@@ -71,6 +73,8 @@ status_data = (
     .load(BRONZE_STATION_STATUS_PATH)
 )
 
+# COMMAND ----------
+
 # Read the station info bronze table
 info_data = (
     spark
@@ -78,6 +82,8 @@ info_data = (
     .format("delta")
     .load(BRONZE_STATION_INFO_PATH)
 )
+
+# COMMAND ----------
 
 # Read the NYC weather bronze table
 weather_df = (
@@ -124,8 +130,8 @@ current_weather_df = (
 
 # COMMAND ----------
 
+# Use our station's name to determine its ID
 station_id = info_data.filter(col("name") == GROUP_STATION_ASSIGNMENT).collect()[0]["station_id"]
-station_id
 
 # COMMAND ----------
 
@@ -155,8 +161,6 @@ gold_df = (
         current_weather_df, "name"
     )
 )
-
-display(gold_df)
 
 # COMMAND ----------
 
@@ -189,29 +193,17 @@ print("Current time:", now)
 # Get the client object for the MLflow tracking server
 client = mlflow.tracking.MlflowClient()
 
-# List all registered models
-registered_models = client.search_registered_models()
+# Get the latest versions of the production and staging models
+latest_versions = client.get_latest_versions(MODEL_NAME, stages=["Production", "Staging"])
 
-# Get all model versions for the current registered model
-model_versions = client.search_model_versions(f"name='{MODEL_NAME}'")
-
-# Get a list of all models, their stages, and their versions
-model_info = [(model.version, model.current_stage) for model in model_versions]
-
-# COMMAND ----------
-
-# Get information about the most recent staging and production model
-html_rows = []
-for stage in ["Production", "Staging"]:
-    stage_models = [model for model in model_info if model[1] == stage]
-    most_recent_model = max(stage_models, key=lambda x: x[0])
-    html_rows.append(f"<tr><td>{stage}</td><td>{most_recent_model[0]}</td></tr>")
+# Create HTML for each row in the table
+info_html = [f"<tr><td>{v.current_stage}</td><td>{v.version}</td></tr>" for v in latest_versions]
 
 # Display the HTML table
 displayHTML(f"""
     <table border=1>
     <tr><td><b>Model</b></td><td><b>Version</b></td></tr>
-    {''.join(html_rows)}
+    {''.join(info_html)}
     </table>
 """)
 
@@ -269,12 +261,18 @@ weather_info = {
     "Precipitation": ("precipitation", "in/hr"),
 }
 
+# Create HTML for each row in the table
 html_rows = []
 for key in weather_info:
     name = weather_info[key][0]
     try:
+        # Round to two decimal places if possible
         value = f"{float(current_weather[name]):0.2f}"
+    except TypeError:
+        # If a value is None, replace with 0
+        value = "0"
     except ValueError:
+        # If the value is a string, it is the weather conditions
         value = current_weather[name]
     units = weather_info[key][1]
     html_rows.append(f"<tr><td>{key}</td><td>{value}</td><td>{units}</td></tr>")
@@ -290,12 +288,12 @@ displayHTML(f"""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Dock availability
+# MAGIC # Total docks at station
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Now, we can determine the number of docks that are available at our station.
+# MAGIC Now, we can determine the total number of docks that are at our station, taking into account the number of docks available and the number of docks disabled.
 
 # COMMAND ----------
 
@@ -353,33 +351,6 @@ displayHTML(f"""
 
 # MAGIC %md
 # MAGIC # Forecasting net bike change
-
-# COMMAND ----------
-
-# import pyspark.sql.functions as F
-
-# # Join the bronze tables to get weather and station data
-# bronze_df = (
-#     status_data
-#     .join(info_data, "station_id")
-#     .select("station_id", "timestamp", "temperature", "precipitation", "total_docks", "bikes_available")
-# )
-
-# # Aggregate the silver table to get the historical data
-# historical_data_df = (
-#     weather_df
-#     #.groupBy("station_id", F.window("timestamp", "4 hours"))
-#     .agg(F.avg("temperature").alias("avg_temperature"), F.sum("precipitation").alias("total_precipitation"), F.avg("bikes_available").alias("avg_bikes_available"))
-#     .select("station_id", "window.start", "window.end", "avg_temperature", "total_precipitation", "avg_bikes_available")
-#     .withColumnRenamed("window.start", "timestamp")
-# )
-
-# # Join the bronze and historical data to create the gold table
-# gold_df = (
-#     bronze_df
-#     .crossjoin(historical_data_df)
-#     .withColumnRenamed("avg_bikes_available", "actual_availability")
-# )
 
 # COMMAND ----------
 
@@ -500,39 +471,8 @@ forecast[forecast["ds"] >= (max_ds - pd.DateOffset(hours=5+4))]["yhat"]
 
 # COMMAND ----------
 
-# import pandas as pd
-
-# # Create a datetime index for the next 4 hours
-# start_time = datetime.now()
-# end_time = start_time + pd.Timedelta(hours=4)
-# index = pd.date_range(start=start_time, end=end_time, freq="30T")
-
-# # Make predictions using the staging model
-# staging_predictions = []
-# for t in index:
-#     # Get the historical data for this time step
-#     historical_data = gold_df.loc[:t, :]
-
-#     # Make a prediction using the staging model
-#     input_data = prepare_input_data(historical_data)
-#     prediction = staging_model.predict(input_data)
-#     staging_predictions.append(prediction)
-
-# # Convert the predictions to a pandas DataFrame
-# staging_predictions_df = pd.DataFrame(staging_predictions, index=index, columns=["predicted_availability"])
-
-# # Check for stock-out or full station conditions
-# stock_out = staging_predictions_df["predicted_availability"] == 0
-# full_station = staging_predictions_df["predicted_availability"] == total_docks
-
-# # Combine the predictions with the stock-out and full station flags
-# predictions_with_flags = staging_predictions_df.join(stock_out).join(full_station)
-
-# # Define a function to return the predictions with flags
-# def predict_bike_availability():
-#     return predictions_with_flags
-
-
+# MAGIC %md
+# MAGIC # Residual plot
 
 # COMMAND ----------
 
@@ -552,14 +492,30 @@ forecast[forecast["ds"] >= (max_ds - pd.DateOffset(hours=5+4))]["yhat"]
 
 # COMMAND ----------
 
-display(status_data)
+# MAGIC %md
+# MAGIC # Archive and promote models
 
 # COMMAND ----------
 
-display(
-    status_data
-    .withColumn("last_reported", from_unixtime("last_reported").cast("timestamp"))
-)
+# MAGIC %md
+# MAGIC If desired by the user, archive the current production model and promote the staging model. This is controlled by a widget in the top-level notebook.
+
+# COMMAND ----------
+
+# Use the previously instantiated client to transition
+if PROMOTE_MODEL:
+    # Archive the current production model
+    client.transition_model_version_stage(
+        name=latest_production.name,
+        version=latest_production.version,
+        stage="Archived",
+    )
+    # Promote the staging model to production
+    client.transition_model_version_stage(
+        name=latest_staging.name,
+        version=latest_staging.version,
+        stage="Production",
+    )
 
 # COMMAND ----------
 
