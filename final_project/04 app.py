@@ -47,11 +47,11 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from pyspark.sql.functions import col, expr, from_unixtime
 from pyspark.sql.functions import hour, minute, second, to_date
 from pyspark.sql.types import *
+from pyspark.sql.window import Window
 
 # COMMAND ----------
 
 ARTIFACT_PATH = f"{GROUP_NAME}_model"
-# ARTIFACT_PATH = f"{GROUP_NAME}_model_temp"
 MODEL_NAME = ARTIFACT_PATH
 
 # COMMAND ----------
@@ -255,7 +255,7 @@ gold_forecast_df = (
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Finally, we will create a gold table that will transform the data from the bronze station status table into a form that contains a timestamp and the number of bikes available at that time.
+# MAGIC Next, we will create a gold table that will transform the data from the bronze station status table into a form that contains a timestamp and the number of bikes available at that time.
 
 # COMMAND ----------
 
@@ -270,6 +270,52 @@ gold_availability_df = (
     )
     .withColumn("bikes_available", col("num_bikes_available") + col("num_ebikes_available"))
 )
+
+# COMMAND ----------
+
+# Specify the desired format for the datetime
+datetime_format = "yyyy-MM-dd HH:mm:ss"
+
+# Convert the Unix timestamp to a human-readable datetime
+gold_unseen_df = (
+    status_data.withColumn("last_reported", from_unixtime("last_reported").cast("timestamp"))
+)
+
+# Filter the DataFrame by the specific station_id value
+filtered_status_data = gold_unseen_df.filter(col("station_id") == station_id)
+
+# Sort the DataFrame by the last_reported column
+sorted_filtered_status_data = filtered_status_data.orderBy(col("last_reported"))
+
+# Extract the date and hour from the last_reported column
+sorted_filtered_status_data = sorted_filtered_status_data.withColumn(
+    "date_hour",
+    F.date_trunc("hour", col("last_reported"))
+)
+
+# Group by the date_hour column and find the minimum timestamp of each hour
+min_timestamps_df = sorted_filtered_status_data.groupBy("date_hour").agg(F.min("last_reported").alias("min_timestamp"))
+
+# Join the original DataFrame with the aggregated DataFrame on the minimum timestamp
+joined_df = sorted_filtered_status_data.join(min_timestamps_df, sorted_filtered_status_data.last_reported == min_timestamps_df.min_timestamp)
+
+# Drop the date_hour column from the min_timestamps_df DataFrame
+joined_df = joined_df.drop(min_timestamps_df.date_hour)
+
+# Calculate the sum of num_ebikes_available and num_bikes_available columns
+joined_df = joined_df.withColumn("total_bikes", joined_df.num_ebikes_available + joined_df.num_bikes_available)
+
+# Calculate the net hourly all bike change using the lag window function
+window_spec = Window.orderBy("last_reported")
+joined_df = joined_df.withColumn("previous_total_bikes", F.lag(joined_df.total_bikes).over(window_spec))
+joined_df = joined_df.withColumn("previous_date_hour", F.lag(joined_df.date_hour).over(window_spec))
+joined_df = joined_df.withColumn("net_hourly_bike_change", joined_df.total_bikes - joined_df.previous_total_bikes)
+
+# Select required columns and rename them
+gold_hourly_change_df = joined_df.select(
+    col("previous_date_hour").alias("ds"),
+    col("net_hourly_bike_change").alias("y")
+).dropna()
 
 # COMMAND ----------
 
@@ -489,6 +535,7 @@ try:
     model_staging_uri = "models:/{model_name}/staging".format(model_name=ARTIFACT_PATH)
     print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_staging_uri))
     model_staging = mlflow.prophet.load_model(model_staging_uri)
+    print("Successfully loaded the staging model.")
 except mlflow.exceptions.MlflowException:
     # Staging model might not have been created yet
     print("No staging model was found.")
@@ -593,11 +640,19 @@ forecasted_inventory_df = pd.DataFrame({
 
 # COMMAND ----------
 
+# Add five hours to the historical inventory data
+old_inventory_df = historical_inventory_df.toPandas().rename({"dt": "time", "bikes_available": "inventory"})
+# old_inventory_df["time"] = pd.to_datetime(old_inventory_df["time"], format="%d%b%Y:%H:%M:%S.%f") + pd.DateOffset(hour=5)
+old_inventory_df["time"] = pd.to_datetime(old_inventory_df["time"]) + pd.DateOffset(hours=5)
+
 # Concatenate the two dataframes to prepare for plotting
 production_forecast_df = pd.concat([
-    historical_inventory_df.toPandas().rename({"dt": "time", "bikes_available": "inventory"}),
+    old_inventory_df,
     forecasted_inventory_df
 ], axis=0)
+
+# Clip values below zero to zero
+production_forecast_df["inventory"] = production_forecast_df["inventory"].clip(lower=0)
 
 # COMMAND ----------
 
@@ -606,7 +661,12 @@ production_forecast_df = pd.concat([
 
 # COMMAND ----------
 
-fig = px.line(production_forecast_df, x="time", y="inventory", title="Forecast of Bike Inventory")
+# MAGIC %md
+# MAGIC **Note** that we have decided to clip below-zero inventory to 0.
+
+# COMMAND ----------
+
+fig = px.line(production_forecast_df, x="time", y="inventory", title="Forecast of Bike Inventory (clipping below-zero inventory to zero)")
 fig.add_hline(y=0, line_width=3, line_dash="dash", line_color="gray")
 fig.add_hline(y=capacity, line_width=3, line_dash="dash", line_color="gray")
 fig.show()
@@ -625,22 +685,24 @@ fig.show()
 
 # COMMAND ----------
 
-# Get the actual net change values from the historical modeling table
-actual_df = silver_historical_modeling_df.toPandas()[["ds", "y"]].reset_index(drop=True)
+# Get the actual net change values from the unseen modeling table
+actual_df = gold_hourly_change_df.toPandas()[["ds", "y"]].reset_index(drop=True)
 
 # Instantiate a list to store the resulting dataframes for production and staging
 result_dfs = []
 
-# Get the forecasts for the historical time period
-production_forecast = forecast_df[(actual_df["ds"].min() <= forecast_df["ds"]) & (forecast_df["ds"] <= actual_df["ds"].max())]
+# Get the earliest and latest timestamps
+earliest_ds = actual_df["ds"].min()
+latest_ds = actual_df["ds"].max()
 
-# Calculate the residuals for the production forecast
-results_production = pd.DataFrame({
-    "yhat": production_forecast["yhat"],
-    "residual": production_forecast["yhat"] - actual_df["y"],
-    "label": "Production",
-})
-result_dfs.append(results_production)
+# Get the forecasts for the appropriate time period
+production_forecast = forecast_df[(earliest_ds <= forecast_df["ds"]) & (forecast_df["ds"] <= latest_ds)]
+
+# Create a residuals dataframe for the production forecast
+production_residual_df = actual_df.merge(right=production_forecast, how="left", on="ds").dropna()[["ds", "y", "yhat"]]
+production_residual_df["residual"] = production_residual_df["yhat"] - production_residual_df["y"]
+production_residual_df["label"] = "Production"
+result_dfs.append(production_residual_df)
 
 # Only plot staging residuals if there is a staging model
 if model_staging:
@@ -653,13 +715,11 @@ if model_staging:
     # Get the forecasts for the historical time period
     staging_forecast = staging_forecast_df[(actual_df["ds"].min() <= staging_forecast_df["ds"]) & (staging_forecast_df["ds"] <= actual_df["ds"].max())]
 
-    # Calculate the residuals for the staging forecast
-    results_staging = pd.DataFrame({
-        "yhat": staging_forecast["yhat"],
-        "residual": staging_forecast["yhat"] - actual_df["y"],
-        "label": "Staging",
-    })
-    result_dfs.append(results_staging)
+    # Create a residuals dataframe for the staging forecast
+    staging_residual_df = actual_df.merge(right=staging_forecast, how="left", on="ds").dropna()[["ds", "y", "yhat"]]
+    staging_residual_df["residual"] = staging_residual_df["yhat"] - staging_residual_df["y"]
+    staging_residual_df["label"] = "Staging"
+    result_dfs.append(staging_residual_df)
 else:
     print("The residual plot will only contain production data because there is currently no staging model.")
 
